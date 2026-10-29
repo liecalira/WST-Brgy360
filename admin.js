@@ -1,4 +1,33 @@
 import './admin.css';
+import {
+  DEFAULT_DEPARTMENT_BY_CATEGORY,
+  getLocalTodayISO,
+  htmlToPlainText,
+  plainTextToHtml,
+  deriveSummaryFromText,
+  normalizeAnnouncement,
+  loadAnnouncements,
+  saveAnnouncements,
+  generateNextAnnouncementId,
+  subscribeAnnouncements
+} from './announcements-store.js';
+import {
+  BUDGET_CATEGORIES,
+  BUDGET_QUARTERS,
+  BUDGET_CATEGORY_COLORS,
+  formatCurrencyPHP,
+  formatPercentValue,
+  isApplicableBudgetRecord,
+  computeBudgetMetrics,
+  normalizeBudgetRecord,
+  loadBudgetRecords,
+  saveBudgetRecords,
+  getAvailableFiscalYears,
+  getActiveCategoriesForYear,
+  generateNextBudgetId,
+  distributeTargetAmountAcrossRecords,
+  subscribeBudgetRecords
+} from './budget-store.js';
 
 /**
  * Brgy360 - Admin Analytics & Governance Console
@@ -1306,295 +1335,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let capitalProjects = loadCapitalProjects();
 
-  // Announcements Dataset (Public Bulletins)
-  const defaultAnnouncements = [
-    {
-      id: 'ANN-2026-08',
-      title: 'Dengue Vector Surveillance & Larvicide Fogging Schedule',
-      category: 'Health',
-      audience: 'Sitio Ibaba',
-      date: '2026-10-10',
-      status: 'Active',
-      isCritical: false,
-      content: 'In coordination with City Health Office, fogging and larvicide distribution will occur Thursday from 6:00 AM to 9:00 AM. Please cover water containers.'
-    },
-    {
-      id: 'ANN-2026-07',
-      title: 'Pre-Monsoon Flood Preparedness Advisory: Tierra Verde',
-      category: 'Emergency',
-      audience: 'Tierra Verde',
-      date: '2026-10-09',
-      status: 'Active',
-      isCritical: true,
-      content: 'Residents along the creek embankment are alerted to monitor water level warnings. Evacuation standby point established at Tierra Verde Multi-Purpose Gym.'
-    },
-    {
-      id: 'ANN-2026-06',
-      title: 'General Assembly & Sangguniang Barangay Public Consultation',
-      category: 'General',
-      audience: 'All Residents',
-      date: '2026-10-05',
-      status: 'Archived',
-      isCritical: false,
-      content: 'Quarterly Barangay Assembly convened to present 2026 YTD Budget Execution and discuss AIP 2027 project submissions.'
-    }
-  ];
+  // Announcements Dataset (Synchronized with Public Home Page via announcements-store.js)
+  let announcementsList = loadAnnouncements();
 
-  let announcementsList = defaultAnnouncements;
-  try {
-    const savedAnn = localStorage.getItem('brgy360_announcements');
-    if (savedAnn) {
-      announcementsList = JSON.parse(savedAnn);
-      if (Array.isArray(announcementsList)) {
-        announcementsList.forEach((a) => {
-          if (!a) return;
-          if (a.audience && a.audience !== 'All Residents') {
-            a.audience = normalizeSitioName(a.audience);
-          }
-          if (typeof a.title === 'string') {
-            a.title = a.title.replace(/Purok\s*2/gi, 'Tierra Verde');
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.warn('Error reading saved announcements', e);
-  }
-
-  // Budget Allocation & Expense Records Dataset (Admin Portal)
-  const DEFAULT_ADMIN_BUDGET_RECORDS = [
-    // 2026 Fiscal Year
-    {
-      id: 'BGT-2026-001',
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Infrastructure',
-      description: 'Drainage Desiltation & Street Repair Sitio Ibaba',
-      budget: 320000,
-      actual: 310000
-    },
-    {
-      id: 'BGT-2026-002',
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Health',
-      description: 'Q1 Medical Mission & Senior Vaccine Procurement',
-      budget: 150000,
-      actual: 145000
-    },
-    {
-      id: 'BGT-2026-003',
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Administration',
-      description: 'Barangay Hall Office Supplies & IT Equipment',
-      budget: 120000,
-      actual: 115000
-    },
-    {
-      id: 'BGT-2026-004',
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Social Services',
-      description: 'First Quarter Youth Leadership & Sports Camp',
-      budget: 95000,
-      actual: 90000
-    },
-    {
-      id: 'BGT-2026-005',
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Infrastructure',
-      description: 'Smart Solar Streetlights Installation Phase 1',
-      budget: 380000,
-      actual: 325000
-    },
-    {
-      id: 'BGT-2026-006',
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Health',
-      description: 'Child Nutrition & Deworming Outreach Program',
-      budget: 110000,
-      actual: 95000
-    },
-    {
-      id: 'BGT-2026-007',
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Administration',
-      description: 'Staff Capacity Training & Semi-Annual Audit',
-      budget: 80000,
-      actual: 72000
-    },
-    {
-      id: 'BGT-2026-008',
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Social Services',
-      description: 'Community Day Care Center Educational Materials',
-      budget: 70000,
-      actual: 56000
-    },
-    {
-      id: 'BGT-2026-009',
-      year: '2026',
-      quarter: 'Q3',
-      category: 'Infrastructure',
-      description: 'Flood Retaining Wall Reinforcement Tierra Verde',
-      budget: 300000,
-      actual: 150000
-    },
-    {
-      id: 'BGT-2026-010',
-      year: '2026',
-      quarter: 'Q3',
-      category: 'Health',
-      description: 'Dengue Prevention & Clean Water Testing Kits',
-      budget: 90000,
-      actual: 60000
-    },
-    {
-      id: 'BGT-2026-011',
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Infrastructure',
-      description: 'CCTVs & Operations Center Equipment Setup',
-      budget: 260000,
-      actual: 0
-    },
-    {
-      id: 'BGT-2026-012',
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Health',
-      description: 'Year-End First Aid & Disaster Emergency Resupply',
-      budget: 70000,
-      actual: 0
-    },
-    {
-      id: 'BGT-2026-013',
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Administration',
-      description: 'Fiscal Year-End Reporting & Accounting System',
-      budget: 60000,
-      actual: 0
-    },
-    {
-      id: 'BGT-2026-014',
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Social Services',
-      description: 'PWD & Senior Citizens Year-End Support Package',
-      budget: 80000,
-      actual: 0
-    },
-    // 2025 Fiscal Year
-    {
-      id: 'BGT-2025-001',
-      year: '2025',
-      quarter: 'Q1',
-      category: 'Infrastructure',
-      description: 'Barangay Hall E-Library & Tech Hub Refurbishment',
-      budget: 420000,
-      actual: 420000
-    },
-    {
-      id: 'BGT-2025-002',
-      year: '2025',
-      quarter: 'Q1',
-      category: 'Health',
-      description: 'Health Station Modernization & Diagnostic Kits',
-      budget: 290000,
-      actual: 290000
-    },
-    {
-      id: 'BGT-2025-003',
-      year: '2025',
-      quarter: 'Q2',
-      category: 'Infrastructure',
-      description: 'Sitio Gitna Central Covered Court Concrete Paving',
-      budget: 350000,
-      actual: 345000
-    },
-    {
-      id: 'BGT-2025-004',
-      year: '2025',
-      quarter: 'Q2',
-      category: 'Administration',
-      description: 'Barangay Records Digitization & Computer Terminals',
-      budget: 140000,
-      actual: 138000
-    },
-    {
-      id: 'BGT-2025-005',
-      year: '2025',
-      quarter: 'Q3',
-      category: 'Health',
-      description: 'Anti-Dengue Fogging & Clean Water Safety Project',
-      budget: 180000,
-      actual: 175000
-    },
-    {
-      id: 'BGT-2025-006',
-      year: '2025',
-      quarter: 'Q3',
-      category: 'Social Services',
-      description: 'Annual Youth Summer Sports Camp & Tournaments',
-      budget: 120000,
-      actual: 118000
-    },
-    {
-      id: 'BGT-2025-007',
-      year: '2025',
-      quarter: 'Q4',
-      category: 'Infrastructure',
-      description: 'Sitio Santolan Slope Stabilization & Pathway',
-      budget: 310000,
-      actual: 300000
-    },
-    {
-      id: 'BGT-2025-008',
-      year: '2025',
-      quarter: 'Q4',
-      category: 'Social Services',
-      description: 'Senior Citizens & PWD Year-End Livelihood Aid',
-      budget: 170000,
-      actual: 164000
-    }
-  ];
-
-  let adminBudgetRecords = [];
-  try {
-    const stored = localStorage.getItem('brgy360_budget_records');
-    if (stored) {
-      adminBudgetRecords = JSON.parse(stored);
-      if (Array.isArray(adminBudgetRecords)) {
-        adminBudgetRecords.forEach((rec) => {
-          if (rec && typeof rec.description === 'string') {
-            rec.description = rec.description
-              .replace(/Purok\s*1-3/gi, 'Sitio Ibaba')
-              .replace(/Purok\s*2/gi, 'Tierra Verde')
-              .replace(/Purok\s*4/gi, 'Sitio Gitna')
-              .replace(/Sitio\s+Riverside/gi, 'Sitio Santolan');
-          }
-        });
-      }
-    } else {
-      adminBudgetRecords = [...DEFAULT_ADMIN_BUDGET_RECORDS];
-      localStorage.setItem('brgy360_budget_records', JSON.stringify(adminBudgetRecords));
-    }
-  } catch (e) {
-    adminBudgetRecords = [...DEFAULT_ADMIN_BUDGET_RECORDS];
-  }
+  // Budget Allocation & Expense Records Dataset (Synchronized with Public Home Page via budget-store.js)
+  let adminBudgetRecords = loadBudgetRecords();
 
   function saveAdminBudgetRecords() {
-    try {
-      localStorage.setItem('brgy360_budget_records', JSON.stringify(adminBudgetRecords));
-    } catch (e) {
-      console.warn('Failed saving budget records to localStorage', e);
-    }
+    adminBudgetRecords = saveBudgetRecords(adminBudgetRecords);
   }
 
   const REPORTS_ANALYTICS_DATA = {
@@ -2128,6 +1876,9 @@ document.addEventListener('DOMContentLoaded', function () {
   let repRequestTypeChart = null;
   let repConcernsChart = null;
   let budgetBurnChart = null;
+  let adminBudgetQuarterBarChart = null;
+  let adminBudgetCategoryPieChart = null;
+  let adminPieChartMode = 'actual';
 
   // Global Chart.js typography defaults
   if (typeof Chart !== 'undefined') {
@@ -2262,6 +2013,50 @@ document.addEventListener('DOMContentLoaded', function () {
   // ==============================================================
   // 5.B UNIFIED DASHBOARD STATS & ANALYTICS CHARTS INITIALIZATION
   // ==============================================================
+  function getDynamicReportsBudgetData(year = '2026') {
+    const yearStr = String(year || '2026');
+    const yearRecords = (adminBudgetRecords || []).filter(
+      (r) => isApplicableBudgetRecord(r) && String(r.year) === yearStr
+    );
+    const catLabels = getActiveCategoriesForYear(yearRecords, yearStr);
+    const catBudgets = catLabels.map((cat) =>
+      yearRecords
+        .filter((r) => r.category === cat)
+        .reduce((sum, r) => sum + (Number(r.budget) || 0), 0)
+    );
+    const catActuals = catLabels.map((cat) =>
+      yearRecords
+        .filter((r) => r.category === cat)
+        .reduce((sum, r) => sum + (Number(r.actual) || 0), 0)
+    );
+
+    const qLabels = [...BUDGET_QUARTERS];
+    const qBudgets = qLabels.map((q) =>
+      yearRecords
+        .filter((r) => r.quarter === q)
+        .reduce((sum, r) => sum + (Number(r.budget) || 0), 0)
+    );
+    const qActuals = qLabels.map((q) =>
+      yearRecords
+        .filter((r) => r.quarter === q)
+        .reduce((sum, r) => sum + (Number(r.actual) || 0), 0)
+    );
+
+    return {
+      metrics: computeBudgetMetrics(yearRecords),
+      budgetCategory: {
+        labels: catLabels,
+        budget: catBudgets,
+        actual: catActuals
+      },
+      quarterly: {
+        labels: qLabels,
+        budget: qBudgets,
+        actual: qActuals
+      }
+    };
+  }
+
   function updateDashboardStatsCards(year = '2026') {
     const setVal = (id, val) => {
       const el = document.getElementById(id);
@@ -2272,7 +2067,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (el) el.innerHTML = html;
     };
 
-    if (year === '2026') {
+    const yearRecords = (adminBudgetRecords || []).filter(
+      (b) => isApplicableBudgetRecord(b) && String(b.year) === String(year)
+    );
+    const budgetMetrics = computeBudgetMetrics(yearRecords);
+
+    if (String(year) === '2026') {
       const totalReq = typeof serviceRequests !== 'undefined' ? serviceRequests.length : 18;
       const completedReq = typeof serviceRequests !== 'undefined'
         ? serviceRequests.filter(r => r.status === 'Ready for Pickup' || r.status === 'Completed').length
@@ -2293,25 +2093,14 @@ document.addEventListener('DOMContentLoaded', function () {
         ? capitalProjects.filter(p => p.status === 'completed').length
         : 2;
 
-      let totalBudget = 2185000;
-      let totalSpent = 1418000;
-      if (adminBudgetRecords && adminBudgetRecords.length) {
-        const y26 = adminBudgetRecords.filter(b => String(b.year) === '2026');
-        if (y26.length) {
-          totalBudget = y26.reduce((acc, b) => acc + (Number(b.budget) || 0), 0);
-          totalSpent = y26.reduce((acc, b) => acc + (Number(b.actual) || 0), 0);
-        }
-      }
-      const utilRate = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 65;
-
       setVal('cardValResidents', '4,892');
       setSub('cardSubResidents', '4,120 verified (84.2%)');
 
       setVal('cardValPendingVerif', '772');
       setSub('cardSubPendingVerif', 'Awaiting citizen validation');
 
-      setVal('cardValTotalBudget', '₱' + totalBudget.toLocaleString());
-      setSub('cardSubTotalBudget', `₱${totalSpent.toLocaleString()} spent · ${utilRate}% utilized`);
+      setVal('cardValTotalBudget', formatCurrencyPHP(budgetMetrics.totalBudget));
+      setSub('cardSubTotalBudget', `${formatCurrencyPHP(budgetMetrics.totalSpending)} spent · ${budgetMetrics.utilizationText} utilized`);
 
       setVal('cardValTotalRequests', totalReq.toString());
       setSub('cardSubTotalRequests', 'All document filings');
@@ -2331,15 +2120,15 @@ document.addEventListener('DOMContentLoaded', function () {
       setVal('cardValCompletedProjects', completedProj.toString());
       setSub('cardSubCompletedProjects', 'Delivered infrastructure');
     } else {
-      // 2025 Historical Data
+      // Historical / Other Fiscal Year Data
       setVal('cardValResidents', '4,650');
       setSub('cardSubResidents', '4,020 verified (86.4%)');
 
       setVal('cardValPendingVerif', '630');
       setSub('cardSubPendingVerif', 'Awaiting citizen validation');
 
-      setVal('cardValTotalBudget', '₱1,980,000');
-      setSub('cardSubTotalBudget', '₱1,950,000 spent · 98% utilized');
+      setVal('cardValTotalBudget', formatCurrencyPHP(budgetMetrics.totalBudget));
+      setSub('cardSubTotalBudget', `${formatCurrencyPHP(budgetMetrics.totalSpending)} spent · ${budgetMetrics.utilizationText} utilized`);
 
       setVal('cardValTotalRequests', '15');
       setSub('cardSubTotalRequests', 'All document filings');
@@ -2364,31 +2153,36 @@ document.addEventListener('DOMContentLoaded', function () {
   function initOrUpdateReportsCharts(year = '2026') {
     if (typeof Chart === 'undefined') return;
     const data = REPORTS_ANALYTICS_DATA[year] || REPORTS_ANALYTICS_DATA['2026'];
+    const dynBudget = getDynamicReportsBudgetData(year);
     updateDashboardStatsCards(year);
 
     // Keep year selectors synced if both exist
     const dashSelect = document.getElementById('dashboardFiscalYearSelect');
-    if (dashSelect && dashSelect.value !== year) dashSelect.value = year;
+    if (dashSelect && dashSelect.value !== year && Array.from(dashSelect.options).some(o => o.value === year)) {
+      dashSelect.value = year;
+    }
     const repSelect = document.getElementById('reportsFiscalYearSelect');
-    if (repSelect && repSelect.value !== year) repSelect.value = year;
+    if (repSelect && repSelect.value !== year && Array.from(repSelect.options).some(o => o.value === year)) {
+      repSelect.value = year;
+    }
 
-    // 1. Budget vs Actual by Category (Dual Grouped Vertical Bar Chart)
+    // 1. Budget vs Actual by Category (Dual Grouped Vertical Bar Chart — Live Synced)
     const ctxBudgetCat = document.getElementById('repBudgetCatChart');
     if (ctxBudgetCat) {
       if (repBudgetCatChart) {
-        repBudgetCatChart.data.labels = data.budgetCategory.labels;
-        repBudgetCatChart.data.datasets[0].data = data.budgetCategory.budget;
-        repBudgetCatChart.data.datasets[1].data = data.budgetCategory.actual;
+        repBudgetCatChart.data.labels = dynBudget.budgetCategory.labels;
+        repBudgetCatChart.data.datasets[0].data = dynBudget.budgetCategory.budget;
+        repBudgetCatChart.data.datasets[1].data = dynBudget.budgetCategory.actual;
         repBudgetCatChart.update();
       } else {
         repBudgetCatChart = new Chart(ctxBudgetCat, {
           type: 'bar',
           data: {
-            labels: data.budgetCategory.labels,
+            labels: dynBudget.budgetCategory.labels,
             datasets: [
               {
                 label: 'Budget',
-                data: data.budgetCategory.budget,
+                data: dynBudget.budgetCategory.budget,
                 backgroundColor: '#0b1e36',
                 borderRadius: 4,
                 barPercentage: 0.7,
@@ -2396,7 +2190,7 @@ document.addEventListener('DOMContentLoaded', function () {
               },
               {
                 label: 'Actual',
-                data: data.budgetCategory.actual,
+                data: dynBudget.budgetCategory.actual,
                 backgroundColor: '#f59e0b',
                 borderRadius: 4,
                 barPercentage: 0.7,
@@ -2421,7 +2215,7 @@ document.addEventListener('DOMContentLoaded', function () {
               tooltip: {
                 backgroundColor: '#0a2540',
                 callbacks: {
-                  label: (ctx) => ` ${ctx.dataset.label}: ₱${Number(ctx.raw).toLocaleString()}`
+                  label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrencyPHP(ctx.raw)}`
                 }
               }
             },
@@ -2434,8 +2228,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 beginAtZero: true,
                 grid: { color: '#f1f5f9' },
                 ticks: {
-                  stepSize: 300000,
-                  callback: (val) => (val / 1000) + 'k',
+                  callback: (val) => {
+                    const num = Number(val) || 0;
+                    if (num === 0) return '₱0';
+                    return '₱' + Math.round(num / 1000).toLocaleString('en-PH') + 'k';
+                  },
                   font: { size: 11 },
                   color: '#64748b'
                 }
@@ -2446,23 +2243,23 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // 2. Quarterly Budget Utilization (Multi-line / Area Chart)
+    // 2. Quarterly Budget Utilization (Multi-line / Area Chart — Live Synced)
     const ctxQuarterly = document.getElementById('repQuarterlyChart');
     if (ctxQuarterly) {
       if (repQuarterlyChart) {
-        repQuarterlyChart.data.labels = data.quarterly.labels;
-        repQuarterlyChart.data.datasets[0].data = data.quarterly.budget;
-        repQuarterlyChart.data.datasets[1].data = data.quarterly.actual;
+        repQuarterlyChart.data.labels = dynBudget.quarterly.labels;
+        repQuarterlyChart.data.datasets[0].data = dynBudget.quarterly.budget;
+        repQuarterlyChart.data.datasets[1].data = dynBudget.quarterly.actual;
         repQuarterlyChart.update();
       } else {
         repQuarterlyChart = new Chart(ctxQuarterly, {
           type: 'line',
           data: {
-            labels: data.quarterly.labels,
+            labels: dynBudget.quarterly.labels,
             datasets: [
               {
                 label: 'Budget',
-                data: data.quarterly.budget,
+                data: dynBudget.quarterly.budget,
                 borderColor: '#0b1e36',
                 backgroundColor: 'rgba(11, 30, 54, 0.05)',
                 borderWidth: 2.5,
@@ -2475,7 +2272,7 @@ document.addEventListener('DOMContentLoaded', function () {
               },
               {
                 label: 'Actual',
-                data: data.quarterly.actual,
+                data: dynBudget.quarterly.actual,
                 borderColor: '#f59e0b',
                 backgroundColor: 'rgba(245, 158, 11, 0.08)',
                 borderWidth: 2.5,
@@ -2505,7 +2302,7 @@ document.addEventListener('DOMContentLoaded', function () {
               tooltip: {
                 backgroundColor: '#0a2540',
                 callbacks: {
-                  label: (ctx) => ` ${ctx.dataset.label}: ₱${Number(ctx.raw).toLocaleString()}`
+                  label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrencyPHP(ctx.raw)}`
                 }
               }
             },
@@ -2518,8 +2315,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 beginAtZero: true,
                 grid: { color: '#f1f5f9' },
                 ticks: {
-                  stepSize: 150000,
-                  callback: (val) => (val / 1000) + 'k',
+                  callback: (val) => {
+                    const num = Number(val) || 0;
+                    if (num === 0) return '₱0';
+                    return '₱' + Math.round(num / 1000).toLocaleString('en-PH') + 'k';
+                  },
                   font: { size: 11 },
                   color: '#64748b'
                 }
@@ -2716,19 +2516,72 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  function computeMonthlyBurnSeries(year = '2026') {
+    const records = (adminBudgetRecords || []).filter(
+      (r) => isApplicableBudgetRecord(r) && (year === 'all' || String(r.year) === String(year))
+    );
+    const totalBudget = records.reduce((s, r) => s + (Number(r.budget) || 0), 0);
+    const qSpent = ['Q1', 'Q2', 'Q3', 'Q4'].map((q) =>
+      records.filter((r) => r.quarter === q).reduce((s, r) => s + (Number(r.actual) || 0), 0)
+    );
+    const monthlySeries = [
+      Math.round(qSpent[0] * 0.31),
+      Math.round(qSpent[0] * 0.34),
+      Math.max(0, qSpent[0] - Math.round(qSpent[0] * 0.31) - Math.round(qSpent[0] * 0.34)),
+      Math.round(qSpent[1] * 0.33),
+      Math.round(qSpent[1] * 0.32),
+      Math.max(0, qSpent[1] - Math.round(qSpent[1] * 0.33) - Math.round(qSpent[1] * 0.32)),
+      Math.round(qSpent[2] * 0.34),
+      Math.round(qSpent[2] * 0.33),
+      Math.max(0, qSpent[2] - Math.round(qSpent[2] * 0.34) - Math.round(qSpent[2] * 0.33)),
+      Math.round(qSpent[3] * 0.34),
+      Math.round(qSpent[3] * 0.33),
+      Math.max(0, qSpent[3] - Math.round(qSpent[3] * 0.34) - Math.round(qSpent[3] * 0.33))
+    ];
+    const monthlyBenchmark = Math.round(totalBudget / 12);
+    return {
+      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+      monthlySeries,
+      benchmarkSeries: Array(12).fill(monthlyBenchmark),
+      monthlyBenchmark
+    };
+  }
+
+  function updateBudgetBurnChart(year = '2026') {
+    if (!budgetBurnChart) return;
+    const burn = computeMonthlyBurnSeries(year);
+    const benchLabelK = Math.round(burn.monthlyBenchmark / 1000).toLocaleString('en-PH');
+    budgetBurnChart.data.labels = burn.labels;
+    budgetBurnChart.data.datasets[0].data = burn.monthlySeries;
+    budgetBurnChart.data.datasets[1].label = `Sustainable Monthly Benchmark (₱${benchLabelK}k)`;
+    budgetBurnChart.data.datasets[1].data = burn.benchmarkSeries;
+    budgetBurnChart.update();
+
+    const sub = document.getElementById('adminBurnChartSubtitle');
+    if (sub) {
+      sub.textContent =
+        year === 'all'
+          ? 'Monthly disbursement trajectory across all active fiscal years'
+          : `Monthly disbursement trajectory derived from FY ${year} budget records`;
+    }
+  }
+
   // Chart 4: Budget Disbursement Burn Rate Chart (Fiscal)
   function initBudgetBurnChart() {
     const ctx = document.getElementById('budgetBurnChart');
     if (!ctx || typeof Chart === 'undefined') return;
 
+    const burn = computeMonthlyBurnSeries('2026');
+    const benchLabelK = Math.round(burn.monthlyBenchmark / 1000).toLocaleString('en-PH');
+
     budgetBurnChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct (YTD)'],
+        labels: burn.labels,
         datasets: [
           {
             label: 'Monthly Actual Disbursement (₱)',
-            data: [120000, 135000, 142000, 150000, 138000, 145000, 158000, 148000, 142000, 140000],
+            data: burn.monthlySeries,
             borderColor: '#0d47a1',
             backgroundColor: 'rgba(13, 71, 161, 0.08)',
             borderWidth: 2.5,
@@ -2737,8 +2590,8 @@ document.addEventListener('DOMContentLoaded', function () {
             pointRadius: 3
           },
           {
-            label: 'Sustainable Monthly Benchmark (₱182k)',
-            data: [182000, 182000, 182000, 182000, 182000, 182000, 182000, 182000, 182000, 182000],
+            label: `Sustainable Monthly Benchmark (₱${benchLabelK}k)`,
+            data: burn.benchmarkSeries,
             borderColor: '#94a3b8',
             borderDash: [5, 5],
             borderWidth: 2,
@@ -2759,17 +2612,20 @@ document.addEventListener('DOMContentLoaded', function () {
           tooltip: {
             backgroundColor: '#0a2540',
             callbacks: {
-              label: (context) => ` ${context.dataset.label}: ₱${Number(context.raw).toLocaleString()}`
+              label: (context) => ` ${context.dataset.label}: ${formatCurrencyPHP(context.raw)}`
             }
           }
         },
         scales: {
           x: { grid: { display: false } },
           y: {
-            beginAtZero: false,
-            min: 80000,
+            beginAtZero: true,
             ticks: {
-              callback: (val) => '₱' + (val / 1000) + 'k'
+              callback: (val) => {
+                const num = Number(val) || 0;
+                if (num === 0) return '₱0';
+                return '₱' + Math.round(num / 1000).toLocaleString('en-PH') + 'k';
+              }
             }
           }
         }
@@ -4574,14 +4430,67 @@ document.addEventListener('DOMContentLoaded', function () {
         const prop = citizenProposals.find(p => p.id === id || p.ref === id);
         if (!prop) return;
 
-        if (confirm(`Are you sure you want to delete proposal "${prop.title}" (${prop.id || prop.ref})?`)) {
-          citizenProposals = citizenProposals.filter(p => p.id !== id && p.ref !== id);
-          saveCitizenProposals();
-          renderProposalsGrid();
-          showAdminToast('Proposal Deleted', `Proposal record ${id} has been permanently removed.`, 'warning');
-        }
+        showAdminConfirm(
+          'Delete Project Proposal',
+          `Are you sure you want to delete proposal "${prop.title}" (${prop.id || prop.ref})?`,
+          function () {
+            citizenProposals = citizenProposals.filter(p => p.id !== id && p.ref !== id);
+            saveCitizenProposals();
+            renderProposalsGrid();
+            showAdminToast('Proposal Deleted', `Proposal record ${id} has been permanently removed.`, 'warning');
+          }
+        );
       });
     });
+  }
+
+  function showAdminConfirm(title, message, onConfirm) {
+    let overlay = document.getElementById('adminInlineConfirmModal');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'adminInlineConfirmModal';
+      overlay.className = 'admin-modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.innerHTML = `
+        <div class="admin-modal-box" style="max-width: 460px;">
+          <div class="modal-header">
+            <div>
+              <span class="modal-kicker">CONFIRM ADMINISTRATIVE ACTION</span>
+              <h3 class="modal-title" id="adminInlineConfirmTitle">Confirm Delete</h3>
+            </div>
+            <button type="button" class="modal-close-btn" id="adminInlineConfirmClose" aria-label="Close modal">&times;</button>
+          </div>
+          <div class="modal-body" style="padding: 18px 24px;">
+            <p id="adminInlineConfirmMsg" style="font-size: 13.5px; color: #334155; line-height: 1.55; margin: 0; white-space: pre-line;"></p>
+          </div>
+          <div class="modal-footer" style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn-res-close" id="adminInlineConfirmCancel">Cancel</button>
+            <button type="button" class="btn-res-reject" id="adminInlineConfirmOk" style="background: #dc2626; color: #ffffff; border-color: #dc2626;">Delete</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function (ev) {
+        if (ev.target === overlay) overlay.classList.remove('active');
+      });
+      overlay.querySelector('#adminInlineConfirmClose').addEventListener('click', function () {
+        overlay.classList.remove('active');
+      });
+      overlay.querySelector('#adminInlineConfirmCancel').addEventListener('click', function () {
+        overlay.classList.remove('active');
+      });
+    }
+    overlay.querySelector('#adminInlineConfirmTitle').textContent = title;
+    overlay.querySelector('#adminInlineConfirmMsg').textContent = message;
+    const okBtn = overlay.querySelector('#adminInlineConfirmOk');
+    const freshOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(freshOkBtn, okBtn);
+    freshOkBtn.addEventListener('click', function () {
+      overlay.classList.remove('active');
+      if (typeof onConfirm === 'function') onConfirm();
+    });
+    overlay.classList.add('active');
   }
 
   // Review & Decision Modal Logic
@@ -5091,14 +5000,17 @@ document.addEventListener('DOMContentLoaded', function () {
     showAdminToast('Marked Delayed', `${proj.title} marked as DELAYED (${currentPct}%). Advancing progress will recalculate its status.`, 'warning');
   };
 
-  // C. Announcements Table Renderer & Dynamic Metrics Engine
+  // C. Announcements Table Renderer & Dynamic Metrics Engine (Synced with Public Home Page)
+  function persistAnnouncementsState() {
+    announcementsList = saveAnnouncements(announcementsList);
+  }
+
   function renderAnnouncementsTable() {
     const tbody = document.getElementById('announcementsTableBody');
-    if (!tbody) return;
 
     // 1. Calculate announcement metrics dynamically
     const totalCount = announcementsList.length;
-    const criticalCount = announcementsList.filter(a => !!a.isCritical).length;
+    const criticalCount = announcementsList.filter(a => !!a.isCritical && a.status === 'Active').length;
     const activeCount = announcementsList.filter(a => a.status === 'Active').length;
     const archivedCount = announcementsList.filter(a => a.status === 'Archived').length;
 
@@ -5106,12 +5018,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const elCrit = document.getElementById('annMetricCriticalCount');
     const elActive = document.getElementById('annMetricActiveCount');
     const elArch = document.getElementById('annMetricArchivedCount');
+    const elNavCounter = document.getElementById('navCounterAnnouncements');
     if (elTotal) elTotal.textContent = totalCount;
     if (elCrit) elCrit.textContent = criticalCount;
     if (elActive) elActive.textContent = activeCount;
     if (elArch) elArch.textContent = archivedCount;
+    if (elNavCounter) elNavCounter.textContent = activeCount;
 
-    // 2. Filter logic
+    if (!tbody) return;
+
+    // 2. Filter & sort logic (matching public feed order: Active Critical pinned, then latest date & timestamp)
     const searchTerm = (document.getElementById('announcementsSearchInput')?.value || '').toLowerCase().trim();
     const filtered = announcementsList.filter(a => {
       let matchFilter = true;
@@ -5123,15 +5039,29 @@ document.addEventListener('DOMContentLoaded', function () {
         matchFilter = a.status === 'Active';
       } else if (currentAnnouncementFilter === 'archived') {
         matchFilter = a.status === 'Archived';
+      } else if (currentAnnouncementFilter === 'unpublished') {
+        matchFilter = a.status === 'Unpublished';
       } else {
-        matchFilter = a.category === currentAnnouncementFilter;
+        matchFilter = String(a.category || '').toLowerCase() === String(currentAnnouncementFilter).toLowerCase();
       }
 
+      const plainPreview = a.plainContent || htmlToPlainText(a.content || a.summary || '');
       const matchSearch = !searchTerm ||
-        a.id.toLowerCase().includes(searchTerm) ||
-        a.title.toLowerCase().includes(searchTerm) ||
-        a.audience.toLowerCase().includes(searchTerm);
+        String(a.id || '').toLowerCase().includes(searchTerm) ||
+        String(a.title || '').toLowerCase().includes(searchTerm) ||
+        String(a.category || '').toLowerCase().includes(searchTerm) ||
+        String(a.audience || '').toLowerCase().includes(searchTerm) ||
+        String(a.department || '').toLowerCase().includes(searchTerm) ||
+        plainPreview.toLowerCase().includes(searchTerm);
       return matchFilter && matchSearch;
+    }).sort((a, b) => {
+      const aActiveCrit = a.status === 'Active' && !!a.isCritical;
+      const bActiveCrit = b.status === 'Active' && !!b.isCritical;
+      if (aActiveCrit && !bActiveCrit) return -1;
+      if (!aActiveCrit && bActiveCrit) return 1;
+      const dateCmp = String(b.date || '').localeCompare(String(a.date || ''));
+      if (dateCmp !== 0) return dateCmp;
+      return (Number(b.publishedAt) || 0) - (Number(a.publishedAt) || 0);
     });
 
     if (filtered.length === 0) {
@@ -5142,15 +5072,50 @@ document.addEventListener('DOMContentLoaded', function () {
     tbody.innerHTML = filtered.map(a => {
       let badgeClass = 'blue';
       if (a.category === 'Emergency') badgeClass = 'red';
-      if (a.category === 'Health') badgeClass = 'yellow';
+      else if (a.category === 'Health') badgeClass = 'yellow';
+      else if (a.category === 'Social Services') badgeClass = 'green';
+
+      let statusBadgeClass = 'yellow';
+      let statusLabel = a.status || 'Active';
+      if (a.status === 'Active') {
+        statusBadgeClass = 'green';
+        statusLabel = 'Active (Public)';
+      } else if (a.status === 'Unpublished') {
+        statusBadgeClass = 'grey';
+        statusLabel = 'Unpublished';
+      } else if (a.status === 'Archived') {
+        statusBadgeClass = 'yellow';
+        statusLabel = 'Archived';
+      }
+
+      const excerptSource = a.summary || a.plainContent || htmlToPlainText(a.content || '');
+      const safeIdAttr = escapeHtml(String(a.id));
+
+      let statusActionsHtml = '';
+      if (a.status === 'Active') {
+        statusActionsHtml = `
+          <button type="button" class="btn-table-action" onclick="window.setAnnouncementStatus('${safeIdAttr}', 'Unpublished')" title="Hide from public home page without archiving">Unpublish</button>
+          <button type="button" class="btn-table-action danger-text" onclick="window.setAnnouncementStatus('${safeIdAttr}', 'Archived')" title="Move to Archive and remove from public home page">Archive</button>
+        `;
+      } else if (a.status === 'Unpublished') {
+        statusActionsHtml = `
+          <button type="button" class="btn-table-action primary" onclick="window.setAnnouncementStatus('${safeIdAttr}', 'Active')" title="Publish live to public home page">Broadcast</button>
+          <button type="button" class="btn-table-action danger-text" onclick="window.setAnnouncementStatus('${safeIdAttr}', 'Archived')" title="Move to Archive">Archive</button>
+        `;
+      } else {
+        statusActionsHtml = `
+          <button type="button" class="btn-table-action primary" onclick="window.setAnnouncementStatus('${safeIdAttr}', 'Active')" title="Restore from Archive and broadcast live on public home page">Restore &amp; Broadcast</button>
+        `;
+      }
 
       return `
-        <tr style="${a.isCritical ? 'background: #fff8f8;' : ''}">
+        <tr style="${a.isCritical && a.status === 'Active' ? 'background: #fff8f8;' : ''}">
           <td><code>${escapeHtml(a.id)}</code></td>
           <td>
             ${a.isCritical ? '<div style="margin-bottom: 3px;"><span class="badge-critical-mini">🚨 CRITICAL ADVISORY</span></div>' : ''}
             <strong>${escapeHtml(a.title)}</strong><br>
-            <small style="color: #64748b;">${escapeHtml(truncate(a.content, 75))}</small>
+            <small style="color: #64748b; display: block; margin-top: 2px;">${escapeHtml(truncate(excerptSource, 85))}</small>
+            <small style="color: #94a3b8; font-size: 11px;">Issued by: ${escapeHtml(a.department || 'Sangguniang Barangay')}</small>
           </td>
           <td>
             ${a.isCritical ?
@@ -5161,10 +5126,11 @@ document.addEventListener('DOMContentLoaded', function () {
           <td><span class="badge-status ${badgeClass}">${escapeHtml(a.category)}</span></td>
           <td>${escapeHtml(a.audience)}</td>
           <td>${escapeHtml(a.date)}</td>
-          <td><span class="badge-status ${a.status === 'Active' ? 'green' : 'yellow'}">${escapeHtml(a.status)}</span></td>
+          <td><span class="badge-status ${statusBadgeClass}">${escapeHtml(statusLabel)}</span></td>
           <td class="text-right">
-            <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end;">
-              <button type="button" class="btn-table-action ${a.isCritical ? 'btn-priority-labeled' : 'btn-priority-label'}" onclick="window.toggleAnnouncementPriority('${a.id}')" title="${a.isCritical ? 'Click to remove Critical Priority label' : 'Click to label as Critical Priority / Emergency Advisory'}">
+            <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+              <button type="button" class="btn-table-action" onclick="window.openEditAnnouncementModal('${safeIdAttr}')" title="Edit announcement details">Edit</button>
+              <button type="button" class="btn-table-action ${a.isCritical ? 'btn-priority-labeled' : 'btn-priority-label'}" onclick="window.toggleAnnouncementPriority('${safeIdAttr}')" title="${a.isCritical ? 'Click to remove Critical Priority label' : 'Click to label as Critical Priority / Emergency Advisory'}">
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -1px; margin-right: 3px;">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                   <line x1="12" y1="9" x2="12" y2="13"/>
@@ -5172,7 +5138,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </svg>
                 ${a.isCritical ? 'Remove Critical' : 'Mark Critical'}
               </button>
-              <button type="button" class="btn-table-action" onclick="window.toggleAnnouncementStatus('${a.id}')">${a.status === 'Active' ? 'Archive' : 'Activate'}</button>
+              ${statusActionsHtml}
             </div>
           </td>
         </tr>
@@ -5181,33 +5147,45 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   window.toggleAnnouncementPriority = function(id) {
-    const ann = announcementsList.find(a => a.id === id);
+    const ann = announcementsList.find(a => String(a.id) === String(id));
     if (!ann) return;
     ann.isCritical = !ann.isCritical;
-    try {
-      localStorage.setItem('brgy360_announcements', JSON.stringify(announcementsList));
-    } catch (e) {
-      console.warn('Failed saving to localStorage', e);
-    }
+    ann.isEmergency = ann.isCritical;
+    ann.updatedAt = Date.now();
+    persistAnnouncementsState();
     renderAnnouncementsTable();
     if (ann.isCritical) {
-      showAdminToast('Critical Priority Labeled', `"${ann.title}" is now labeled as Critical Priority / Emergency Advisory.`, 'warning');
+      showAdminToast('Critical Priority Labeled', `"${ann.title}" is now pinned as a Critical Priority / Emergency Advisory.`, 'warning');
     } else {
-      showAdminToast('Standard Priority', `"${ann.title}" priority reverted to Standard Advisory.`, 'info');
+      showAdminToast('Standard Priority', `"${ann.title}" priority updated to Standard Advisory.`, 'info');
+    }
+  };
+
+  window.setAnnouncementStatus = function(id, nextStatus) {
+    const ann = announcementsList.find(a => String(a.id) === String(id));
+    if (!ann) return;
+    ann.status = nextStatus;
+    ann.updatedAt = Date.now();
+    if (nextStatus === 'Active' && !ann.publishedAt) {
+      ann.publishedAt = Date.now();
+    }
+    persistAnnouncementsState();
+    renderAnnouncementsTable();
+
+    if (nextStatus === 'Active') {
+      showAdminToast('Broadcast Live', `"${ann.title}" is now live on the Public Home Page.`, 'success');
+    } else if (nextStatus === 'Archived') {
+      showAdminToast('Moved to Archive', `"${ann.title}" removed from the Public Home Page and stored in Archived Notices.`, 'info');
+    } else {
+      showAdminToast('Announcement Unpublished', `"${ann.title}" hidden from the Public Home Page.`, 'info');
     }
   };
 
   window.toggleAnnouncementStatus = function(id) {
-    const ann = announcementsList.find(a => a.id === id);
+    const ann = announcementsList.find(a => String(a.id) === String(id));
     if (!ann) return;
-    ann.status = ann.status === 'Active' ? 'Archived' : 'Active';
-    try {
-      localStorage.setItem('brgy360_announcements', JSON.stringify(announcementsList));
-    } catch (e) {
-      console.warn('Failed saving to localStorage', e);
-    }
-    renderAnnouncementsTable();
-    showAdminToast('Announcement Status', `"${ann.title}" set to ${ann.status}.`, 'info');
+    const nextStatus = ann.status === 'Active' ? 'Archived' : 'Active';
+    window.setAnnouncementStatus(id, nextStatus);
   };
 
   // Event Listeners for Proposals Filters
@@ -5285,7 +5263,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const annSearch = document.getElementById('announcementsSearchInput');
   if (annSearch) annSearch.addEventListener('input', renderAnnouncementsTable);
 
-  // New Announcement Modal Triggers & Priority Toggle Card
+  // Create & Edit Announcement Modal Triggers & Priority Toggle Card
   const btnOpenNewAnnModal = document.getElementById('btnOpenNewAnnouncementModal');
   const modalNewAnn = document.getElementById('newAnnouncementModal');
   const btnCloseNewAnnModal = document.getElementById('btnCloseNewAnnModal');
@@ -5294,16 +5272,28 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnToggleCriticalPriority = document.getElementById('btnToggleCriticalPriority');
   const annIsCriticalInput = document.getElementById('annIsCritical');
   const criticalToggleBadge = document.getElementById('criticalToggleBadge');
+  const annEditIdInput = document.getElementById('annEditId');
+  const annCategorySelect = document.getElementById('annCategory');
+  const annDepartmentInput = document.getElementById('annDepartment');
+  const annDateInput = document.getElementById('annDate');
+  const annStatusSelect = document.getElementById('annStatus');
+  const annSummaryInput = document.getElementById('annSummary');
+  const annModalKicker = document.getElementById('annModalKicker');
+  const annModalTitle = document.getElementById('annModalTitle');
+  const annModalSub = document.getElementById('annModalSub');
 
-  function setModalPriorityState(isCritical) {
+  function setModalPriorityState(isCritical, autoSwitchCategory = true) {
     if (!btnToggleCriticalPriority || !annIsCriticalInput || !criticalToggleBadge) return;
     if (isCritical) {
       btnToggleCriticalPriority.classList.add('is-critical');
       annIsCriticalInput.value = 'true';
       criticalToggleBadge.innerHTML = '<span class="status-dot dot-red"></span><span class="badge-text">🚨 Critical Priority</span>';
-      const catSelect = document.getElementById('annCategory');
-      if (catSelect && catSelect.value === 'Health') {
-        catSelect.value = 'Emergency';
+      if (autoSwitchCategory && annCategorySelect && annCategorySelect.value !== 'Emergency') {
+        const prevDefaultDept = DEFAULT_DEPARTMENT_BY_CATEGORY[annCategorySelect.value] || '';
+        annCategorySelect.value = 'Emergency';
+        if (annDepartmentInput && (!annDepartmentInput.value.trim() || annDepartmentInput.value.trim() === prevDefaultDept)) {
+          annDepartmentInput.value = DEFAULT_DEPARTMENT_BY_CATEGORY.Emergency;
+        }
       }
     } else {
       btnToggleCriticalPriority.classList.remove('is-critical');
@@ -5312,28 +5302,130 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  if (btnToggleCriticalPriority) {
-    btnToggleCriticalPriority.addEventListener('click', () => {
-      const currentlyCritical = annIsCriticalInput?.value === 'true';
-      setModalPriorityState(!currentlyCritical);
+  if (annCategorySelect && annDepartmentInput) {
+    annCategorySelect.addEventListener('change', () => {
+      const currentDept = annDepartmentInput.value.trim();
+      const isDefaultDept = !currentDept || Object.values(DEFAULT_DEPARTMENT_BY_CATEGORY).includes(currentDept);
+      if (isDefaultDept) {
+        annDepartmentInput.value = DEFAULT_DEPARTMENT_BY_CATEGORY[annCategorySelect.value] || 'Sangguniang Barangay Secretariat';
+      }
     });
   }
 
-  if (btnOpenNewAnnModal) {
-    btnOpenNewAnnModal.addEventListener('click', () => {
-      setModalPriorityState(false);
-      modalNewAnn?.classList.add('active');
+  if (btnToggleCriticalPriority) {
+    btnToggleCriticalPriority.addEventListener('click', () => {
+      const currentlyCritical = annIsCriticalInput?.value === 'true';
+      setModalPriorityState(!currentlyCritical, true);
     });
+  }
+
+  function clearAnnouncementFormValidation() {
+    const titleEl = document.getElementById('annTitle');
+    const contentEl = document.getElementById('annContent');
+    const titleErr = document.getElementById('annTitleError');
+    const contentErr = document.getElementById('annContentError');
+    [titleErr, contentErr].forEach(e => { if (e) e.textContent = ''; });
+    [titleEl, contentEl].forEach(e => { if (e) e.classList.remove('is-invalid', 'input-error'); });
+  }
+
+  function openCreateAnnouncementModal() {
+    document.getElementById('newAnnouncementForm')?.reset();
+    clearAnnouncementFormValidation();
+    if (annEditIdInput) annEditIdInput.value = '';
+    if (annCategorySelect) annCategorySelect.value = 'General';
+    const audEl = document.getElementById('annAudience');
+    if (audEl) audEl.value = 'All Residents';
+    if (annDepartmentInput) {
+      annDepartmentInput.value = DEFAULT_DEPARTMENT_BY_CATEGORY.General;
+    }
+    if (annDateInput) annDateInput.value = getLocalTodayISO();
+    if (annStatusSelect) annStatusSelect.value = 'Active';
+    if (annSummaryInput) {
+      annSummaryInput.value = '';
+      annSummaryInput.dataset.initialSummary = '';
+      annSummaryInput.dataset.wasAutoDerived = 'true';
+    }
+    const contentEl = document.getElementById('annContent');
+    if (contentEl) {
+      contentEl.value = '';
+      contentEl.dataset.initialPlain = '';
+    }
+    setModalPriorityState(false, false);
+
+    if (annModalKicker) annModalKicker.textContent = 'COMMUNICATIONS · BROADCAST ADVISORY';
+    if (annModalTitle) annModalTitle.textContent = 'Create Official Announcement';
+    if (annModalSub) annModalSub.textContent = 'Broadcast to Public Portal & Resident Feeds';
+    if (btnSubmitNewAnn) btnSubmitNewAnn.textContent = 'Broadcast Announcement';
+
+    modalNewAnn?.classList.add('active');
+  }
+
+  window.openEditAnnouncementModal = function(id) {
+    const ann = announcementsList.find(a => String(a.id) === String(id));
+    if (!ann) return;
+
+    clearAnnouncementFormValidation();
+    if (annEditIdInput) annEditIdInput.value = String(ann.id);
+
+    const titleEl = document.getElementById('annTitle');
+    const audEl = document.getElementById('annAudience');
+    const contentEl = document.getElementById('annContent');
+
+    if (titleEl) titleEl.value = ann.title || '';
+    if (annCategorySelect) {
+      const hasOption = Array.from(annCategorySelect.options).some(opt => opt.value === ann.category);
+      annCategorySelect.value = hasOption ? ann.category : 'General';
+    }
+    if (audEl) {
+      const hasAud = Array.from(audEl.options).some(opt => opt.value === ann.audience);
+      audEl.value = hasAud ? ann.audience : 'All Residents';
+    }
+    if (annDepartmentInput) {
+      annDepartmentInput.value = ann.department || DEFAULT_DEPARTMENT_BY_CATEGORY[ann.category] || 'Sangguniang Barangay Secretariat';
+    }
+    if (annDateInput) {
+      annDateInput.value = ann.date || getLocalTodayISO();
+    }
+    if (annStatusSelect) {
+      annStatusSelect.value = ann.status || 'Active';
+    }
+
+    const initialPlain = ann.plainContent || htmlToPlainText(ann.content || ann.summary || '');
+    const derivedFromInitial = deriveSummaryFromText(initialPlain);
+    const currentSummary = ann.summary || '';
+
+    if (annSummaryInput) {
+      annSummaryInput.value = currentSummary;
+      annSummaryInput.dataset.initialSummary = currentSummary;
+      annSummaryInput.dataset.wasAutoDerived = (!currentSummary || currentSummary === derivedFromInitial) ? 'true' : 'false';
+    }
+    if (contentEl) {
+      contentEl.value = initialPlain;
+      contentEl.dataset.initialPlain = initialPlain;
+    }
+
+    setModalPriorityState(Boolean(ann.isCritical), false);
+
+    if (annModalKicker) annModalKicker.textContent = `EDIT OFFICIAL NOTICE · ${ann.id}`;
+    if (annModalTitle) annModalTitle.textContent = 'Edit Barangay Announcement';
+    if (annModalSub) annModalSub.textContent = 'Changes synchronize automatically with the Public Home Page';
+    if (btnSubmitNewAnn) btnSubmitNewAnn.textContent = 'Save & Sync Changes';
+
+    modalNewAnn?.classList.add('active');
+  };
+
+  if (btnOpenNewAnnModal) {
+    btnOpenNewAnnModal.addEventListener('click', openCreateAnnouncementModal);
   }
   if (btnCloseNewAnnModal) {
     btnCloseNewAnnModal.addEventListener('click', () => {
-      setModalPriorityState(false);
+      setModalPriorityState(false, false);
       modalNewAnn?.classList.remove('active');
     });
   }
   if (btnCancelNewAnn) {
     btnCancelNewAnn.addEventListener('click', () => {
-      setModalPriorityState(false);
+      setModalPriorityState(false, false);
       modalNewAnn?.classList.remove('active');
     });
   }
@@ -5365,29 +5457,32 @@ document.addEventListener('DOMContentLoaded', function () {
       const audEl = document.getElementById('annAudience');
       const contentEl = document.getElementById('annContent');
 
+      const editingId = (annEditIdInput?.value || '').trim();
       const title = (titleEl?.value || '').trim();
       const cat = catEl?.value || 'General';
       const aud = audEl?.value || 'All Residents';
-      const content = (contentEl?.value || '').trim();
+      const department = (annDepartmentInput?.value || '').trim() || DEFAULT_DEPARTMENT_BY_CATEGORY[cat] || 'Sangguniang Barangay Secretariat';
+      const datePublished = (annDateInput?.value || '').trim() || getLocalTodayISO();
+      const status = annStatusSelect?.value || 'Active';
+      const rawSummary = (annSummaryInput?.value || '').trim();
+      const rawContent = (contentEl?.value || '').trim();
       const isCritical = annIsCriticalInput?.value === 'true';
 
-      const titleErr = document.getElementById('annTitleError');
-      const contentErr = document.getElementById('annContentError');
-
-      [titleErr, contentErr].forEach(e => { if (e) e.textContent = ''; });
-      [titleEl, contentEl].forEach(e => { if (e) e.classList.remove('is-invalid', 'input-error'); });
+      clearAnnouncementFormValidation();
 
       let isValid = true;
       let firstInvalid = null;
 
       if (!title || title.length < 3) {
+        const titleErr = document.getElementById('annTitleError');
         if (titleErr) titleErr.textContent = 'Please enter an announcement headline (at least 3 characters).';
         if (titleEl) titleEl.classList.add('is-invalid');
         isValid = false;
         if (!firstInvalid) firstInvalid = titleEl;
       }
 
-      if (!content || content.length < 10) {
+      if (!rawContent || rawContent.length < 10) {
+        const contentErr = document.getElementById('annContentError');
         if (contentErr) contentErr.textContent = 'Please provide detailed announcement content (at least 10 characters).';
         if (contentEl) contentEl.classList.add('is-invalid');
         isValid = false;
@@ -5400,36 +5495,100 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
-      const newId = `ANN-2026-${String(announcementsList.length + 9).padStart(2, '0')}`;
-      announcementsList.unshift({
-        id: newId,
-        title: title,
-        category: cat,
-        audience: aud,
-        date: new Date().toISOString().slice(0, 10),
-        status: 'Active',
-        isCritical: isCritical,
-        content: content
-      });
+      if (editingId) {
+        const existingIdx = announcementsList.findIndex(a => String(a.id) === editingId);
+        if (existingIdx !== -1) {
+          const prev = announcementsList[existingIdx];
+          const initialPlain = contentEl?.dataset.initialPlain ?? '';
+          const contentChanged = rawContent !== initialPlain;
+          const initialSummary = annSummaryInput?.dataset.initialSummary ?? '';
+          const summaryChanged = rawSummary !== initialSummary;
+          const wasAutoDerived = annSummaryInput?.dataset.wasAutoDerived === 'true';
 
-      try {
-        localStorage.setItem('brgy360_announcements', JSON.stringify(announcementsList));
-      } catch (e) {
-        console.warn('Failed saving to localStorage', e);
+          const finalHtmlContent = contentChanged ? plainTextToHtml(rawContent) : prev.content;
+          let finalSummary = rawSummary;
+          if (!rawSummary || (contentChanged && !summaryChanged && wasAutoDerived)) {
+            finalSummary = deriveSummaryFromText(rawContent);
+          }
+
+          announcementsList[existingIdx] = normalizeAnnouncement({
+            ...prev,
+            title,
+            category: cat,
+            audience: aud,
+            department,
+            date: datePublished,
+            status,
+            isCritical,
+            isEmergency: isCritical,
+            summary: finalSummary,
+            content: finalHtmlContent,
+            plainContent: rawContent,
+            publishedAt: prev.publishedAt || Date.now(),
+            updatedAt: Date.now()
+          }, existingIdx);
+
+          persistAnnouncementsState();
+          renderAnnouncementsTable();
+          modalNewAnn?.classList.remove('active');
+          document.getElementById('newAnnouncementForm')?.reset();
+          if (annEditIdInput) annEditIdInput.value = '';
+          setModalPriorityState(false, false);
+
+          showAdminToast(
+            'Announcement Updated',
+            status === 'Active'
+              ? `"${title}" updated and synchronized with the Public Home Page.`
+              : `"${title}" saved with status: ${status} (hidden from Public Home Page).`,
+            'success'
+          );
+          return;
+        }
       }
 
+      const newId = generateNextAnnouncementId(announcementsList);
+      const nowTs = Date.now();
+      const newEntry = normalizeAnnouncement({
+        id: newId,
+        title,
+        category: cat,
+        audience: aud,
+        department,
+        date: datePublished,
+        status,
+        isCritical,
+        isEmergency: isCritical,
+        summary: rawSummary || deriveSummaryFromText(rawContent),
+        content: plainTextToHtml(rawContent),
+        plainContent: rawContent,
+        publishedAt: nowTs,
+        updatedAt: nowTs
+      }, 0);
+
+      announcementsList.unshift(newEntry);
+      persistAnnouncementsState();
       renderAnnouncementsTable();
+
       modalNewAnn?.classList.remove('active');
       document.getElementById('newAnnouncementForm')?.reset();
-      setModalPriorityState(false);
+      if (annEditIdInput) annEditIdInput.value = '';
+      setModalPriorityState(false, false);
 
-      if (isCritical) {
-        showAdminToast('🚨 Critical Emergency Broadcast', `Advisory ${newId} marked with Critical Priority & published to resident alerts.`, 'warning');
+      if (status !== 'Active') {
+        showAdminToast('Announcement Saved', `Notice ${newId} saved as ${status} (not visible on Public Home Page).`, 'info');
+      } else if (isCritical) {
+        showAdminToast('🚨 Critical Emergency Broadcast', `Advisory ${newId} marked with Critical Priority & broadcast live to the Public Home Page.`, 'warning');
       } else {
-        showAdminToast('Broadcast Published', `Notice ${newId} published to resident portals.`, 'success');
+        showAdminToast('Broadcast Published', `Notice ${newId} broadcast live to the Public Home Page.`, 'success');
       }
     });
   }
+
+  // Keep Admin table synchronized if another admin tab updates announcements
+  subscribeAnnouncements((latestList) => {
+    announcementsList = latestList;
+    renderAnnouncementsTable();
+  });
 
   // New Project Modal Triggers
   const btnNewProjectModal = document.getElementById('btnNewProjectModal');
@@ -5602,77 +5761,390 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ==============================================================
-  // 11. BUDGET ALLOCATION & EXPENSE RECORDS (ADMIN PORTAL)
+  // 11. BUDGET ALLOCATION & EXPENSE RECORDS (ADMIN PORTAL & PUBLIC SYNC)
   // ==============================================================
   function formatPHP(amount) {
-    return '₱' + Number(amount || 0).toLocaleString('en-PH');
+    return formatCurrencyPHP(amount);
   }
 
-  function updateBudgetMetricCards(selectedYear, filtered) {
+  function syncAdminBudgetYearSelectors() {
+    const years = getAvailableFiscalYears(adminBudgetRecords);
+
+    const adminYearSelect = document.getElementById('adminBudgetYearFilter');
+    if (adminYearSelect) {
+      const prev = adminYearSelect.value || '2026';
+      adminYearSelect.innerHTML =
+        '<option value="all">All Years</option>' +
+        years.map((y) => `<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join('');
+      adminYearSelect.value = prev === 'all' || years.includes(prev) ? prev : (years[0] || '2026');
+    }
+
+    const sumYearSelect = document.getElementById('sumEditYear');
+    if (sumYearSelect) {
+      const prevSum = sumYearSelect.value || '2026';
+      sumYearSelect.innerHTML = years
+        .map((y) => `<option value="${escapeHtml(y)}">FY ${escapeHtml(y)}</option>`)
+        .join('');
+      sumYearSelect.value = years.includes(prevSum) ? prevSum : (years[0] || '2026');
+    }
+
+    ['dashboardFiscalYearSelect', 'reportsFiscalYearSelect'].forEach((selId) => {
+      const sel = document.getElementById(selId);
+      if (sel) {
+        const prevVal = sel.value || '2026';
+        sel.innerHTML = years
+          .map((y) => `<option value="${escapeHtml(y)}">FY ${escapeHtml(y)}</option>`)
+          .join('');
+        sel.value = years.includes(prevVal) ? prevVal : (years[0] || '2026');
+      }
+    });
+  }
+
+  function initAdminPublicSyncedCharts() {
+    if (typeof Chart === 'undefined') return;
+
+    const barCanvas = document.getElementById('adminBudgetQuarterBarChart');
+    if (barCanvas && !adminBudgetQuarterBarChart) {
+      adminBudgetQuarterBarChart = new Chart(barCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: [...BUDGET_QUARTERS],
+          datasets: [
+            {
+              label: 'Budget',
+              data: [0, 0, 0, 0],
+              backgroundColor: '#0d47a1',
+              borderRadius: 6,
+              barPercentage: 0.65,
+              categoryPercentage: 0.6
+            },
+            {
+              label: 'Actual',
+              data: [0, 0, 0, 0],
+              backgroundColor: '#f59e0b',
+              borderRadius: 6,
+              barPercentage: 0.65,
+              categoryPercentage: 0.6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              align: 'end',
+              labels: { boxWidth: 12, font: { size: 11.5, weight: '600' }, color: '#334155' }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: ${formatPHP(ctx.raw)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11.5, weight: '600' }, color: '#475569' }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: '#f1f5f9' },
+              ticks: {
+                callback: (val) => {
+                  const num = Number(val) || 0;
+                  if (num === 0) return '₱0';
+                  if (Math.abs(num) >= 1000000) {
+                    return '₱' + (Math.round((num / 1000000) * 100) / 100).toLocaleString('en-PH') + 'M';
+                  }
+                  return '₱' + Math.round(num / 1000).toLocaleString('en-PH') + 'k';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    const pieCanvas = document.getElementById('adminBudgetCategoryPieChart');
+    if (pieCanvas && !adminBudgetCategoryPieChart) {
+      adminBudgetCategoryPieChart = new Chart(pieCanvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Infrastructure', 'Health', 'Administration', 'Social Services'],
+          datasets: [
+            {
+              data: [0, 0, 0, 0],
+              backgroundColor: ['#0d47a1', '#16a34a', '#f59e0b', '#7c3aed'],
+              borderWidth: 2,
+              borderColor: '#ffffff',
+              hoverOffset: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { boxWidth: 10, font: { size: 11, weight: '500' }, color: '#334155', padding: 12 }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              callbacks: {
+                label: (ctx) => {
+                  if (ctx.label === 'No Active Budget Data') return ' ₱0 (0%)';
+                  const ds = ctx.dataset.data || [];
+                  const total = ds.reduce((a, b) => a + (Number(b) || 0), 0);
+                  const raw = Number(ctx.raw) || 0;
+                  const pct = total > 0 ? formatPercentValue((raw / total) * 100) : '0%';
+                  return ` ${ctx.label}: ${formatPHP(raw)} (${pct})`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  function updateAdminPublicSyncedCharts(selectedYear = '2026', selectedQuarter = 'all', selectedCategory = 'all') {
+    const applicable = adminBudgetRecords.filter(
+      (r) => isApplicableBudgetRecord(r) && (selectedYear === 'all' || String(r.year) === String(selectedYear))
+    );
+
+    if (adminBudgetQuarterBarChart) {
+      const quarters = selectedQuarter === 'all' ? [...BUDGET_QUARTERS] : [selectedQuarter];
+      const budgetSeries = quarters.map((q) =>
+        applicable
+          .filter((r) => r.quarter === q && (selectedCategory === 'all' || r.category === selectedCategory))
+          .reduce((s, r) => s + (Number(r.budget) || 0), 0)
+      );
+      const actualSeries = quarters.map((q) =>
+        applicable
+          .filter((r) => r.quarter === q && (selectedCategory === 'all' || r.category === selectedCategory))
+          .reduce((s, r) => s + (Number(r.actual) || 0), 0)
+      );
+
+      adminBudgetQuarterBarChart.data.labels = quarters;
+      adminBudgetQuarterBarChart.data.datasets[0].data = budgetSeries;
+      adminBudgetQuarterBarChart.data.datasets[1].data = actualSeries;
+      adminBudgetQuarterBarChart.update();
+
+      const barSub = document.getElementById('adminQuarterBarSubtitle');
+      if (barSub) {
+        const yearTxt = selectedYear === 'all' ? 'All Fiscal Years' : `FY ${selectedYear}`;
+        barSub.textContent = `${yearTxt} quarterly allocation and actual spending synced with the Public Home Page`;
+      }
+    }
+
+    if (adminBudgetCategoryPieChart) {
+      const catsForYear = getActiveCategoriesForYear(adminBudgetRecords, selectedYear);
+      const activeCats = selectedCategory === 'all' ? catsForYear : [selectedCategory];
+
+      const actualPerCat = activeCats.map((cat) =>
+        applicable
+          .filter((r) => r.category === cat && (selectedQuarter === 'all' || r.quarter === selectedQuarter))
+          .reduce((s, r) => s + (Number(r.actual) || 0), 0)
+      );
+      const budgetPerCat = activeCats.map((cat) =>
+        applicable
+          .filter((r) => r.category === cat && (selectedQuarter === 'all' || r.quarter === selectedQuarter))
+          .reduce((s, r) => s + (Number(r.budget) || 0), 0)
+      );
+
+      const sumActual = actualPerCat.reduce((a, b) => a + b, 0);
+      const sumBudget = budgetPerCat.reduce((a, b) => a + b, 0);
+
+      let effectiveMode = adminPieChartMode;
+      let fallbackToBudget = false;
+      if (effectiveMode === 'actual' && sumActual === 0 && sumBudget > 0) {
+        effectiveMode = 'budget';
+        fallbackToBudget = true;
+      }
+
+      const pieTitle = document.getElementById('adminCategoryPieTitle');
+      const pieSub = document.getElementById('adminCategoryPieSubtitle');
+      if (pieTitle) {
+        pieTitle.textContent =
+          effectiveMode === 'budget' ? 'Allocated Budget by Category' : 'Spending by Category';
+      }
+      if (pieSub) {
+        if (sumActual === 0 && sumBudget === 0) {
+          pieSub.textContent = 'No active allocations recorded for current selection';
+        } else if (fallbackToBudget) {
+          pieSub.textContent = 'No disbursements recorded yet — displaying allocated budget shares';
+        } else {
+          pieSub.textContent =
+            effectiveMode === 'budget'
+              ? 'Category budget share synced with the Public Home Page'
+              : 'Category spending share synced with the Public Home Page';
+        }
+      }
+
+      if (sumActual === 0 && sumBudget === 0) {
+        adminBudgetCategoryPieChart.data.labels = ['No Active Budget Data'];
+        adminBudgetCategoryPieChart.data.datasets[0].data = [1];
+        adminBudgetCategoryPieChart.data.datasets[0].backgroundColor = ['#e2e8f0'];
+      } else {
+        const series = effectiveMode === 'budget' ? budgetPerCat : actualPerCat;
+        adminBudgetCategoryPieChart.data.labels = activeCats;
+        adminBudgetCategoryPieChart.data.datasets[0].data = series;
+        adminBudgetCategoryPieChart.data.datasets[0].backgroundColor = activeCats.map(
+          (c) => BUDGET_CATEGORY_COLORS[c] || '#64748b'
+        );
+      }
+      adminBudgetCategoryPieChart.update();
+    }
+  }
+
+  function renderAdminRecentDisbursements(selectedYear = '2026') {
+    const tbody = document.getElementById('adminRecentVouchersTbody');
+    if (!tbody) return;
+
+    const disbursed = adminBudgetRecords
+      .filter(
+        (r) =>
+          isApplicableBudgetRecord(r) &&
+          (selectedYear === 'all' || String(r.year) === String(selectedYear)) &&
+          Number(r.actual) > 0
+      )
+      .slice(0, 6);
+
+    if (disbursed.length === 0) {
+      tbody.innerHTML =
+        '<tr><td colspan="4" style="text-align:center;color:#64748b;padding:18px;">No disbursed expenditures recorded for the selected fiscal period.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = disbursed
+      .map(
+        (r) => `
+        <tr>
+          <td><code>#${escapeHtml(r.id)}</code></td>
+          <td>${escapeHtml(r.category)}</td>
+          <td>${escapeHtml(r.description)}</td>
+          <td><strong>${formatPHP(r.actual)}</strong></td>
+        </tr>
+      `
+      )
+      .join('');
+  }
+
+  function updateBudgetMetricCards(selectedYear, filteredRecords) {
     const elTotal = document.getElementById('bgtMetricTotal');
     const elSpent = document.getElementById('bgtMetricSpent');
     const elRemaining = document.getElementById('bgtMetricRemaining');
     const elUtil = document.getElementById('bgtMetricUtil');
     const elBadge = document.getElementById('bgtMetricUtilBadge');
+    const elRemBadge = document.getElementById('bgtMetricRemainingBadge');
     const elYearBadge = document.getElementById('bgtMetricYearBadge');
 
     if (!elTotal) return;
 
     if (elYearBadge) {
-      elYearBadge.innerHTML = `<span class="status-dot dot-blue"></span> ${selectedYear === 'all' ? 'All Fiscal Years' : 'FY ' + selectedYear}`;
+      elYearBadge.innerHTML = `<span class="status-dot dot-blue"></span> ${
+        selectedYear === 'all' ? 'All Fiscal Years' : 'FY ' + escapeHtml(selectedYear)
+      }`;
     }
 
-    const recordsToSum = (filtered && filtered.length > 0) ? filtered : adminBudgetRecords;
-    const totalBudget = recordsToSum.reduce((sum, r) => sum + (Number(r.budget) || 0), 0);
-    const totalSpent = recordsToSum.reduce((sum, r) => sum + (Number(r.actual) || 0), 0);
-    const remaining = Math.max(0, totalBudget - totalSpent);
-    const utilRate = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+    // Sum only applicable (non-Inactive) records in the current selection; never fall back to all years when empty
+    const applicableList = Array.isArray(filteredRecords)
+      ? filteredRecords.filter(isApplicableBudgetRecord)
+      : adminBudgetRecords.filter(
+          (r) => isApplicableBudgetRecord(r) && (selectedYear === 'all' || String(r.year) === String(selectedYear))
+        );
 
-    elTotal.textContent = formatPHP(totalBudget);
-    elSpent.textContent = formatPHP(totalSpent);
-    elRemaining.textContent = formatPHP(remaining);
-    elUtil.textContent = utilRate + '%';
+    const metrics = computeBudgetMetrics(applicableList);
+
+    elTotal.textContent = formatPHP(metrics.totalBudget);
+    elSpent.textContent = formatPHP(metrics.totalSpending);
+    elRemaining.textContent = formatPHP(metrics.remainingBudget);
+    elUtil.textContent = metrics.utilizationText;
+
+    if (elRemBadge) {
+      if (metrics.remainingBudget < 0) {
+        elRemBadge.className = 'metric-badge badge-amber';
+        elRemBadge.innerHTML = '<span class="status-dot dot-amber"></span> Over Cap';
+      } else {
+        elRemBadge.className = 'metric-badge badge-green';
+        elRemBadge.innerHTML = '<span class="status-dot dot-green"></span> Available';
+      }
+    }
 
     if (elBadge) {
-      if (utilRate >= 80) {
+      if (metrics.utilizationRate >= 80) {
         elBadge.className = 'metric-badge badge-green';
         elBadge.style.background = '';
         elBadge.style.color = '';
-        elBadge.innerHTML = `<span class="status-dot dot-green"></span> ${utilRate}% Rate`;
-      } else if (utilRate >= 50) {
+        elBadge.innerHTML = `<span class="status-dot dot-green"></span> ${metrics.utilizationText} Rate`;
+      } else if (metrics.utilizationRate >= 50) {
         elBadge.className = 'metric-badge badge-amber';
         elBadge.style.background = '';
         elBadge.style.color = '';
-        elBadge.innerHTML = `<span class="status-dot dot-amber"></span> ${utilRate}% Rate`;
+        elBadge.innerHTML = `<span class="status-dot dot-amber"></span> ${metrics.utilizationText} Rate`;
       } else {
         elBadge.className = 'metric-badge';
         elBadge.style.background = '#f1f5f9';
         elBadge.style.color = '#64748b';
-        elBadge.innerHTML = `<span class="status-dot" style="background:#94a3b8;"></span> ${utilRate}% Rate`;
+        elBadge.innerHTML = `<span class="status-dot" style="background:#94a3b8;"></span> ${metrics.utilizationText} Rate`;
       }
     }
 
-    // Dynamically update the 4 sectoral summary cards
+    // Update Admin Budget Utilization Progress Bar Card (matches KPI cards 100%)
+    const adminUtilBadge = document.getElementById('adminUtilBadge');
+    const adminUtilSpentBar = document.getElementById('adminUtilSpentBar');
+    const adminUtilRemBar = document.getElementById('adminUtilRemainingBar');
+    const adminUtilTrack = document.getElementById('adminUtilProgressBar');
+    const adminUtilSubtext = document.getElementById('adminUtilSubtextLabel');
+
+    if (adminUtilBadge) adminUtilBadge.textContent = `${metrics.utilizationText} spent`;
+    if (adminUtilSpentBar) adminUtilSpentBar.style.width = `${metrics.spentBarPct}%`;
+    if (adminUtilRemBar) adminUtilRemBar.style.width = `${metrics.remainingBarPct}%`;
+    if (adminUtilTrack) adminUtilTrack.setAttribute('aria-valuenow', String(Math.round(metrics.utilizationRate)));
+    if (adminUtilSubtext) {
+      adminUtilSubtext.innerHTML = `<strong>${formatPHP(metrics.totalSpending)}</strong> of <strong>${formatPHP(
+        metrics.totalBudget
+      )}</strong> used · <strong>${formatPHP(metrics.remainingBudget)}</strong> remaining`;
+    }
+
+    const quarterVal = document.getElementById('adminBudgetQuarterFilter')?.value || 'all';
+    const catVal = document.getElementById('adminBudgetCategoryFilter')?.value || 'all';
+
     updateSectoralCards(selectedYear);
+    updateAdminPublicSyncedCharts(selectedYear, quarterVal, catVal);
+    updateBudgetBurnChart(selectedYear);
+    renderAdminRecentDisbursements(selectedYear);
   }
 
   function updateSectoralCards(yearVal) {
-    const records = adminBudgetRecords.filter(r => yearVal === 'all' || r.year === yearVal);
+    const records = adminBudgetRecords.filter(
+      (r) => isApplicableBudgetRecord(r) && (yearVal === 'all' || String(r.year) === String(yearVal))
+    );
     const currentCatFilter = document.getElementById('adminBudgetCategoryFilter')?.value || 'all';
 
     const sectors = [
-      { key: 'Infra', cat: 'Infrastructure', spentId: 'secSpentInfra', totalId: 'secTotalInfra', burnId: 'secBurnInfra', fillId: 'secFillInfra', cardId: 'secCardInfra' },
-      { key: 'Health', cat: 'Health', spentId: 'secSpentHealth', totalId: 'secTotalHealth', burnId: 'secBurnHealth', fillId: 'secFillHealth', cardId: 'secCardHealth' },
-      { key: 'Social', cat: 'Social Services', spentId: 'secSpentSocial', totalId: 'secTotalSocial', burnId: 'secBurnSocial', fillId: 'secFillSocial', cardId: 'secCardSocial' },
-      { key: 'Admin', cat: 'Administration', spentId: 'secSpentAdmin', totalId: 'secTotalAdmin', burnId: 'secBurnAdmin', fillId: 'secFillAdmin', cardId: 'secCardAdmin' }
+      { key: 'Infra', cat: 'Infrastructure', spentId: 'secSpentInfra', totalId: 'secTotalInfra', burnId: 'secBurnInfra', fillId: 'secFillInfra', cardId: 'secCardInfra', alwaysShow: true },
+      { key: 'Health', cat: 'Health', spentId: 'secSpentHealth', totalId: 'secTotalHealth', burnId: 'secBurnHealth', fillId: 'secFillHealth', cardId: 'secCardHealth', alwaysShow: true },
+      { key: 'Social', cat: 'Social Services', spentId: 'secSpentSocial', totalId: 'secTotalSocial', burnId: 'secBurnSocial', fillId: 'secFillSocial', cardId: 'secCardSocial', alwaysShow: true },
+      { key: 'Admin', cat: 'Administration', spentId: 'secSpentAdmin', totalId: 'secTotalAdmin', burnId: 'secBurnAdmin', fillId: 'secFillAdmin', cardId: 'secCardAdmin', alwaysShow: true },
+      { key: 'Emergency', cat: 'Emergency Preparedness', spentId: 'secSpentEmergency', totalId: 'secTotalEmergency', burnId: 'secBurnEmergency', fillId: 'secFillEmergency', cardId: 'secCardEmergency', alwaysShow: true },
+      { key: 'EduSports', cat: 'Education, Sports & Recreation', spentId: 'secSpentEduSports', totalId: 'secTotalEduSports', burnId: 'secBurnEduSports', fillId: 'secFillEduSports', cardId: 'secCardEduSports', alwaysShow: true },
+      { key: 'Agri', cat: 'Agriculture & Livelihood', spentId: 'secSpentAgri', totalId: 'secTotalAgri', burnId: 'secBurnAgri', fillId: 'secFillAgri', cardId: 'secCardAgri', alwaysShow: true },
+      { key: 'Env', cat: 'Environment & Waste Management', spentId: 'secSpentEnv', totalId: 'secTotalEnv', burnId: 'secBurnEnv', fillId: 'secFillEnv', cardId: 'secCardEnv', alwaysShow: true }
     ];
 
-    sectors.forEach(s => {
-      const sRecords = records.filter(r => r.category === s.cat);
-      const bgt = sRecords.reduce((sum, r) => sum + (Number(r.budget) || 0), 0);
-      const spent = sRecords.reduce((sum, r) => sum + (Number(r.actual) || 0), 0);
-      const pct = bgt > 0 ? (spent / bgt) * 100 : 0;
-      const pctFormatted = pct.toFixed(1) + '%';
+    sectors.forEach((s) => {
+      const sRecords = records.filter((r) => r.category === s.cat);
+      const sMetrics = computeBudgetMetrics(sRecords);
+      const bgt = sMetrics.totalBudget;
+      const spent = sMetrics.totalSpending;
+      const pct = sMetrics.utilizationRate;
+      const pctFormatted = sMetrics.utilizationText;
 
       const elSpent = document.getElementById(s.spentId);
       const elTotal = document.getElementById(s.totalId);
@@ -5680,14 +6152,27 @@ document.addEventListener('DOMContentLoaded', function () {
       const elFill = document.getElementById(s.fillId);
       const elCard = document.getElementById(s.cardId);
 
+      if (elCard) {
+        if (s.alwaysShow) {
+          elCard.hidden = false;
+        } else {
+          const hasAnyForCat = sRecords.length > 0 || currentCatFilter === s.cat;
+          elCard.hidden = !hasAnyForCat;
+        }
+      }
+
       if (elSpent) elSpent.textContent = formatPHP(spent);
       if (elTotal) elTotal.textContent = `/ ${formatPHP(bgt)} Cap`;
       if (elFill) {
-        elFill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+        elFill.style.width = `${sMetrics.spentBarPct}%`;
         elFill.className = 'sec-fill ' + (pct >= 85 ? 'danger' : pct >= 50 ? 'normal' : 'success');
       }
       if (elBurn) {
-        if (pct >= 85) {
+        if (bgt === 0 && spent === 0) {
+          elBurn.textContent = '0% Unallocated';
+          elBurn.className = 'sec-burn-tag';
+          if (elCard) elCard.classList.remove('surplus-accent', 'warning-accent');
+        } else if (pct >= 85) {
           elBurn.textContent = `${pctFormatted} (Cap Risk)`;
           elBurn.className = 'sec-burn-tag danger';
           if (elCard) {
@@ -5724,6 +6209,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const tbody = document.getElementById('adminBudgetTbody');
     if (!tbody) return;
 
+    syncAdminBudgetYearSelectors();
+
     const searchInput = document.getElementById('adminBudgetSearchInput');
     const yearFilter = document.getElementById('adminBudgetYearFilter');
     const quarterFilter = document.getElementById('adminBudgetQuarterFilter');
@@ -5735,14 +6222,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const quarterVal = quarterFilter?.value || 'all';
     const catVal = categoryFilter?.value || 'all';
 
-    const filtered = adminBudgetRecords.filter(item => {
-      const matchYear = (yearVal === 'all' || item.year === yearVal);
-      const matchQuarter = (quarterVal === 'all' || item.quarter === quarterVal);
-      const matchCategory = (catVal === 'all' || item.category === catVal);
-      const matchSearch = !searchVal ||
+    const filtered = adminBudgetRecords.filter((item) => {
+      const matchYear = yearVal === 'all' || String(item.year) === String(yearVal);
+      const matchQuarter = quarterVal === 'all' || item.quarter === quarterVal;
+      const matchCategory = catVal === 'all' || item.category === catVal;
+      const matchSearch =
+        !searchVal ||
+        (item.id && String(item.id).toLowerCase().includes(searchVal)) ||
         (item.category && item.category.toLowerCase().includes(searchVal)) ||
         (item.description && item.description.toLowerCase().includes(searchVal)) ||
-        (item.year && item.year.toString().includes(searchVal)) ||
+        (item.remarks && item.remarks.toLowerCase().includes(searchVal)) ||
+        (item.status && item.status.toLowerCase().includes(searchVal)) ||
+        (item.year && String(item.year).includes(searchVal)) ||
         (item.quarter && item.quarter.toLowerCase().includes(searchVal));
 
       return matchYear && matchQuarter && matchCategory && matchSearch;
@@ -5753,14 +6244,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     updateBudgetMetricCards(yearVal, filtered);
-    if (typeof updateDashboardStatsCards === 'function') {
-      updateDashboardStatsCards(document.getElementById('dashboardFiscalYearSelect')?.value || '2026');
+    if (typeof initOrUpdateReportsCharts === 'function') {
+      const activeDashYear = document.getElementById('dashboardFiscalYearSelect')?.value || '2026';
+      initOrUpdateReportsCharts(activeDashYear);
     }
 
     if (filtered.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" class="budget-empty-state-row">
+          <td colspan="9" class="budget-empty-state-row">
             <div class="budget-empty-state-inner">
               <div class="budget-empty-icon">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
@@ -5778,48 +6270,86 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    tbody.innerHTML = filtered.map(item => {
-      const budgetNum = Number(item.budget) || 0;
-      const actualNum = Number(item.actual) || 0;
-      const utilPct = budgetNum > 0 ? Math.round((actualNum / budgetNum) * 100) : 0;
+    tbody.innerHTML = filtered
+      .map((item) => {
+        const budgetNum = Number(item.budget) || 0;
+        const actualNum = Number(item.actual) || 0;
+        const utilPctRaw = budgetNum > 0 ? (actualNum / budgetNum) * 100 : 0;
+        const utilText = formatPercentValue(utilPctRaw);
 
-      let utilClass = 'util-low';
-      if (utilPct >= 80) {
-        utilClass = 'util-high';
-      } else if (utilPct >= 50) {
-        utilClass = 'util-mid';
-      } else if (utilPct === 0) {
-        utilClass = 'util-low';
-      }
+        let utilClass = 'util-low';
+        if (utilPctRaw >= 80) {
+          utilClass = 'util-high';
+        } else if (utilPctRaw >= 50) {
+          utilClass = 'util-mid';
+        }
 
-      return `
-        <tr data-record-id="${escapeHtml(item.id)}">
-          <td class="col-year">${escapeHtml(item.year)}</td>
-          <td><span class="quarter-pill">${escapeHtml(item.quarter)}</span></td>
-          <td class="col-category">${escapeHtml(item.category)}</td>
-          <td class="col-description">${escapeHtml(item.description)}</td>
-          <td class="col-currency col-budget-val">${formatPHP(budgetNum)}</td>
-          <td class="col-currency col-actual-val">${formatPHP(actualNum)}</td>
-          <td class="col-util-val ${utilClass}">${utilPct}%</td>
-          <td class="col-actions-center">
-            <button type="button" class="btn-budget-action action-edit" data-id="${escapeHtml(item.id)}" title="Edit Record" aria-label="Edit Record">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-            </button>
-            <button type="button" class="btn-budget-action action-delete" data-id="${escapeHtml(item.id)}" title="Delete Record" aria-label="Delete Record">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join('');
+        const statusLabel = item.status || 'Active';
+        const statusSlug = statusLabel.toLowerCase();
+        const remarksSub = item.remarks
+          ? `<span class="admin-budget-remarks-sub">${escapeHtml(item.remarks)}</span>`
+          : '';
+
+        return `
+          <tr data-record-id="${escapeHtml(item.id)}">
+            <td class="col-year">${escapeHtml(item.year)}</td>
+            <td><span class="quarter-pill">${escapeHtml(item.quarter)}</span></td>
+            <td class="col-category">${escapeHtml(item.category)}</td>
+            <td class="col-description">
+              <span>${escapeHtml(item.description)}</span>
+              ${remarksSub}
+            </td>
+            <td class="col-currency col-budget-val">${formatPHP(budgetNum)}</td>
+            <td class="col-currency col-actual-val">${formatPHP(actualNum)}</td>
+            <td class="col-util-val ${utilClass}">${utilText}</td>
+            <td style="text-align: center;">
+              <span class="budget-status-pill status-${escapeHtml(statusSlug)}">${escapeHtml(statusLabel)}</span>
+            </td>
+            <td class="col-actions-center">
+              <button type="button" class="btn-budget-action action-edit" data-id="${escapeHtml(item.id)}" title="Edit Record" aria-label="Edit Record">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+              <button type="button" class="btn-budget-action action-delete" data-id="${escapeHtml(item.id)}" title="Delete Record" aria-label="Delete Record">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
 
     attachBudgetRowActions();
+  }
+
+  function updateRecordModalCalcPreview() {
+    const amountVal = parseFloat(document.getElementById('budgetInputAmount')?.value || '0');
+    const actualVal = parseFloat(document.getElementById('budgetInputActual')?.value || '0');
+    const safeBudget = Number.isFinite(amountVal) && amountVal >= 0 ? amountVal : 0;
+    const safeActual = Number.isFinite(actualVal) && actualVal >= 0 ? actualVal : 0;
+    const remaining = safeBudget - safeActual;
+    const utilRate = safeBudget > 0 ? (safeActual / safeBudget) * 100 : 0;
+
+    const remEl = document.getElementById('budgetModalCalcRemaining');
+    const utilEl = document.getElementById('budgetModalCalcUtil');
+    if (remEl) remEl.textContent = formatPHP(remaining);
+    if (utilEl) utilEl.textContent = formatPercentValue(utilRate);
+  }
+
+  function clearRecordModalErrors() {
+    ['budgetInputYearError', 'budgetInputDescError', 'budgetInputAmountError', 'budgetInputActualError'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '';
+    });
+    ['budgetInputYear', 'budgetInputDesc', 'budgetInputAmount', 'budgetInputActual'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('is-invalid', 'input-error');
+    });
   }
 
   function openAddBudgetModal() {
@@ -5830,36 +6360,36 @@ document.addEventListener('DOMContentLoaded', function () {
     const yearInput = document.getElementById('budgetInputYear');
     const quarterInput = document.getElementById('budgetInputQuarter');
     const catInput = document.getElementById('budgetInputCategory');
+    const statusInput = document.getElementById('budgetInputStatus');
     const descInput = document.getElementById('budgetInputDesc');
+    const remarksInput = document.getElementById('budgetInputRemarks');
     const amountInput = document.getElementById('budgetInputAmount');
     const actualInput = document.getElementById('budgetInputActual');
 
     if (!modal) return;
     if (form) form.reset();
+    clearRecordModalErrors();
 
-    // Reset errors
-    ['budgetInputYearError', 'budgetInputDescError', 'budgetInputAmountError'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '';
-    });
-    ['budgetInputYear', 'budgetInputDesc', 'budgetInputAmount'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove('is-invalid', 'input-error');
-    });
+    const activeFilterYear = document.getElementById('adminBudgetYearFilter')?.value;
+    const defaultYear = activeFilterYear && activeFilterYear !== 'all' ? activeFilterYear : '2026';
 
     if (title) title.textContent = 'Add Budget Record';
     if (recordIdInput) recordIdInput.value = '';
-    if (yearInput) yearInput.value = '2026';
+    if (yearInput) yearInput.value = defaultYear;
     if (quarterInput) quarterInput.value = 'Q1';
-    if (catInput) catInput.value = 'Administration';
+    if (catInput) catInput.value = 'Infrastructure';
+    if (statusInput) statusInput.value = 'Active';
+    if (amountInput) amountInput.value = '';
     if (actualInput) actualInput.value = '0';
+    if (remarksInput) remarksInput.value = '';
 
+    updateRecordModalCalcPreview();
     modal.classList.add('active');
-    setTimeout(() => descInput?.focus(), 100);
+    setTimeout(() => amountInput?.focus(), 80);
   }
 
   function openEditBudgetModal(recordId) {
-    const record = adminBudgetRecords.find(r => r.id === recordId);
+    const record = adminBudgetRecords.find((r) => String(r.id) === String(recordId));
     if (!record) return;
 
     const modal = document.getElementById('adminBudgetModal');
@@ -5868,33 +6398,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const yearInput = document.getElementById('budgetInputYear');
     const quarterInput = document.getElementById('budgetInputQuarter');
     const catInput = document.getElementById('budgetInputCategory');
+    const statusInput = document.getElementById('budgetInputStatus');
     const descInput = document.getElementById('budgetInputDesc');
+    const remarksInput = document.getElementById('budgetInputRemarks');
     const amountInput = document.getElementById('budgetInputAmount');
     const actualInput = document.getElementById('budgetInputActual');
 
     if (!modal) return;
-
-    // Reset errors
-    ['budgetInputYearError', 'budgetInputDescError', 'budgetInputAmountError'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '';
-    });
-    ['budgetInputYear', 'budgetInputDesc', 'budgetInputAmount'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove('is-invalid', 'input-error');
-    });
+    clearRecordModalErrors();
 
     if (title) title.textContent = 'Edit Budget Record';
     if (recordIdInput) recordIdInput.value = record.id;
     if (yearInput) yearInput.value = record.year || '2026';
     if (quarterInput) quarterInput.value = record.quarter || 'Q1';
     if (catInput) catInput.value = record.category || 'Administration';
+    if (statusInput) statusInput.value = record.status || 'Active';
     if (descInput) descInput.value = record.description || '';
-    if (amountInput) amountInput.value = record.budget || 0;
-    if (actualInput) actualInput.value = record.actual || 0;
+    if (remarksInput) remarksInput.value = record.remarks || '';
+    if (amountInput) amountInput.value = record.budget ?? 0;
+    if (actualInput) actualInput.value = record.actual ?? 0;
 
+    updateRecordModalCalcPreview();
     modal.classList.add('active');
-    setTimeout(() => descInput?.focus(), 100);
+    setTimeout(() => amountInput?.focus(), 80);
   }
 
   function closeBudgetModal() {
@@ -5902,14 +6428,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (modal) modal.classList.remove('active');
     const form = document.getElementById('adminBudgetForm');
     if (form) form.reset();
-    ['budgetInputYearError', 'budgetInputDescError', 'budgetInputAmountError'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '';
-    });
-    ['budgetInputYear', 'budgetInputDesc', 'budgetInputAmount'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove('is-invalid', 'input-error');
-    });
+    clearRecordModalErrors();
   }
 
   function saveBudgetRecord() {
@@ -5917,24 +6436,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const yearEl = document.getElementById('budgetInputYear');
     const quarterEl = document.getElementById('budgetInputQuarter');
     const catEl = document.getElementById('budgetInputCategory');
+    const statusEl = document.getElementById('budgetInputStatus');
     const descEl = document.getElementById('budgetInputDesc');
+    const remarksEl = document.getElementById('budgetInputRemarks');
     const amountEl = document.getElementById('budgetInputAmount');
     const actualEl = document.getElementById('budgetInputActual');
 
     const year = (yearEl?.value || '').trim();
     const quarter = quarterEl?.value || 'Q1';
     const category = catEl?.value || 'Administration';
+    const status = statusEl?.value || 'Active';
     const description = (descEl?.value || '').trim();
-    const budgetRaw = (amountEl?.value || '').trim();
-    const budget = parseFloat(budgetRaw) || 0;
-    const actual = parseFloat(actualEl?.value || '0') || 0;
+    const remarks = (remarksEl?.value || '').trim();
+    const budgetRaw = (amountEl?.value ?? '').trim();
+    const actualRaw = (actualEl?.value ?? '0').trim();
+    const budget = budgetRaw === '' ? NaN : parseFloat(budgetRaw);
+    const actual = actualRaw === '' ? 0 : parseFloat(actualRaw);
 
     const yearErr = document.getElementById('budgetInputYearError');
     const descErr = document.getElementById('budgetInputDescError');
     const amountErr = document.getElementById('budgetInputAmountError');
+    const actualErr = document.getElementById('budgetInputActualError');
 
-    [yearErr, descErr, amountErr].forEach(e => { if (e) e.textContent = ''; });
-    [yearEl, descEl, amountEl].forEach(e => { if (e) e.classList.remove('is-invalid', 'input-error'); });
+    clearRecordModalErrors();
 
     let isValid = true;
     let firstInvalid = null;
@@ -5947,18 +6471,25 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!firstInvalid) firstInvalid = yearEl;
     }
 
-    if (!description || description.length < 5) {
-      if (descErr) descErr.textContent = 'Description must be at least 5 characters.';
+    if (!description || description.length < 3) {
+      if (descErr) descErr.textContent = 'Description must be at least 3 characters.';
       if (descEl) descEl.classList.add('is-invalid');
       isValid = false;
       if (!firstInvalid) firstInvalid = descEl;
     }
 
-    if (!budgetRaw || isNaN(budget) || budget <= 0) {
-      if (amountErr) amountErr.textContent = 'Budget amount must be a positive number greater than 0.';
+    if (budgetRaw === '' || isNaN(budget) || budget < 0) {
+      if (amountErr) amountErr.textContent = 'Allocated budget must be ₱0 or a positive amount.';
       if (amountEl) amountEl.classList.add('is-invalid');
       isValid = false;
       if (!firstInvalid) firstInvalid = amountEl;
+    }
+
+    if (isNaN(actual) || actual < 0) {
+      if (actualErr) actualErr.textContent = 'Actual spending must be ₱0 or a positive amount.';
+      if (actualEl) actualEl.classList.add('is-invalid');
+      isValid = false;
+      if (!firstInvalid) firstInvalid = actualEl;
     }
 
     if (!isValid) {
@@ -5968,32 +6499,49 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (recordId) {
-      const index = adminBudgetRecords.findIndex(r => r.id === recordId);
+      const index = adminBudgetRecords.findIndex((r) => String(r.id) === String(recordId));
       if (index !== -1) {
-        adminBudgetRecords[index] = {
-          ...adminBudgetRecords[index],
-          year,
-          quarter,
-          category,
-          description,
-          budget,
-          actual
-        };
-        showAdminToast('Budget Record Updated', `Line item ${recordId} updated successfully.`, 'success');
+        adminBudgetRecords[index] = normalizeBudgetRecord(
+          {
+            ...adminBudgetRecords[index],
+            year,
+            quarter,
+            category,
+            status,
+            description,
+            remarks,
+            budget,
+            actual,
+            updatedAt: Date.now()
+          },
+          index
+        );
+        showAdminToast(
+          'Budget Record Updated',
+          `Line item ${recordId} saved and synchronized with the Public Home Page.`,
+          'success'
+        );
       }
     } else {
-      const newId = `BGT-${year}-${String(adminBudgetRecords.length + 1).padStart(3, '0')}`;
-      const newRecord = {
+      const newId = generateNextBudgetId(adminBudgetRecords, year);
+      const newRecord = normalizeBudgetRecord({
         id: newId,
         year,
         quarter,
         category,
+        status,
         description,
+        remarks,
         budget,
-        actual
-      };
+        actual,
+        updatedAt: Date.now()
+      });
       adminBudgetRecords.unshift(newRecord);
-      showAdminToast('Budget Record Saved', `New allocation item ${newId} logged under ${category}.`, 'success');
+      showAdminToast(
+        'Budget Record Added',
+        `Allocation ${newId} saved and published to the Public Transparency Dashboard.`,
+        'success'
+      );
     }
 
     saveAdminBudgetRecords();
@@ -6002,15 +6550,518 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function deleteBudgetRecord(recordId) {
-    const record = adminBudgetRecords.find(r => r.id === recordId);
+    const record = adminBudgetRecords.find((r) => String(r.id) === String(recordId));
     if (!record) return;
 
-    if (confirm(`Are you sure you want to delete this budget record?\n\n"${record.description}" (${record.quarter} ${record.year} - ${formatPHP(record.budget)})`)) {
-      adminBudgetRecords = adminBudgetRecords.filter(r => r.id !== recordId);
-      saveAdminBudgetRecords();
-      renderAdminBudgetTable();
-      showAdminToast('Budget Record Removed', `Line item ${recordId} has been deleted.`, 'info');
+    showAdminConfirm(
+      'Delete Budget Record',
+      `Are you sure you want to delete "${record.description}" (${record.quarter} ${record.year} · ${formatPHP(record.budget)})? This will also update the Public Home Page.`,
+      function () {
+        adminBudgetRecords = adminBudgetRecords.filter((r) => String(r.id) !== String(recordId));
+        saveAdminBudgetRecords();
+        renderAdminBudgetTable();
+        showAdminToast('Budget Record Removed', `Line item ${recordId} removed and public totals updated.`, 'info');
+      }
+    );
+  }
+
+  // ==============================================================
+  // COMPREHENSIVE SUMMARY, CATEGORY & QUARTERLY GRAPH EDITOR MODAL
+  // ==============================================================
+  let summaryDraftYear = '2026';
+  let summaryWorkingRecords = [];
+  let summaryFocusedCategory = null;
+
+  function loadDraftRecordsForYear(year) {
+    summaryDraftYear = String(year || '2026');
+    summaryWorkingRecords = adminBudgetRecords
+      .filter((r) => String(r.year) === summaryDraftYear)
+      .map((r, i) => ({ ...normalizeBudgetRecord(r, i) }));
+
+    const batchStatusEl = document.getElementById('sumInputBatchStatus');
+    const remarksEl = document.getElementById('sumInputRemarks');
+    if (batchStatusEl) batchStatusEl.value = '';
+    if (remarksEl) remarksEl.value = '';
+  }
+
+  function ensureDraftRecordsExist(filterFn, defaults = {}) {
+    let matches = summaryWorkingRecords.filter((r) => isApplicableBudgetRecord(r) && filterFn(r));
+    if (matches.length === 0) {
+      const fallbackId = generateNextBudgetId(
+        [...adminBudgetRecords, ...summaryWorkingRecords],
+        summaryDraftYear
+      );
+      const created = normalizeBudgetRecord({
+        id: fallbackId,
+        year: summaryDraftYear,
+        quarter: defaults.quarter || 'Q1',
+        category: defaults.category || 'Infrastructure',
+        description:
+          defaults.description ||
+          `${defaults.quarter || 'Q1'} ${defaults.category || 'General'} Budget Allocation`,
+        remarks: defaults.remarks || '',
+        budget: 0,
+        actual: 0,
+        status: 'Active',
+        updatedAt: Date.now()
+      });
+      summaryWorkingRecords.push(created);
+      matches = [created];
     }
+    return matches;
+  }
+
+  function getApplicableDraftRecords() {
+    return summaryWorkingRecords.filter(isApplicableBudgetRecord);
+  }
+
+  function refreshSummaryOverviewFields(skipActiveElement = true) {
+    const metrics = computeBudgetMetrics(getApplicableDraftRecords());
+    const activeEl = skipActiveElement ? document.activeElement : null;
+
+    const totalEl = document.getElementById('sumInputTotalBudget');
+    const spentEl = document.getElementById('sumInputTotalSpending');
+    const remEl = document.getElementById('sumInputRemainingBudget');
+    const utilEl = document.getElementById('sumInputUtilRate');
+
+    if (totalEl && activeEl !== totalEl) totalEl.value = metrics.totalBudget;
+    if (spentEl && activeEl !== spentEl) spentEl.value = metrics.totalSpending;
+    if (remEl && activeEl !== remEl) remEl.value = metrics.remainingBudget;
+    if (utilEl && activeEl !== utilEl) utilEl.value = metrics.utilizationRate;
+
+    const badge = document.getElementById('sumPreviewBadge');
+    const spentBar = document.getElementById('sumPreviewSpentBar');
+    const remBar = document.getElementById('sumPreviewRemBar');
+    const text = document.getElementById('sumPreviewText');
+
+    if (badge) badge.textContent = `${metrics.utilizationText} spent`;
+    if (spentBar) spentBar.style.width = `${metrics.spentBarPct}%`;
+    if (remBar) remBar.style.width = `${metrics.remainingBarPct}%`;
+    if (text) {
+      text.innerHTML = `<strong>${formatPHP(metrics.totalSpending)}</strong> of <strong>${formatPHP(
+        metrics.totalBudget
+      )}</strong> used · <strong>${formatPHP(metrics.remainingBudget)}</strong> remaining`;
+    }
+  }
+
+  function renderSummaryCategoriesPane() {
+    const tbody = document.getElementById('sumCategoriesEditTbody');
+    const tfoot = document.getElementById('sumCategoriesEditTfoot');
+    if (!tbody || !tfoot) return;
+
+    const categories = [...BUDGET_CATEGORIES];
+    summaryWorkingRecords.forEach((r) => {
+      if (r.category && !categories.includes(r.category)) {
+        categories.push(r.category);
+      }
+    });
+
+    tbody.innerHTML = categories
+      .map((cat) => {
+        const allCatRecs = summaryWorkingRecords.filter((r) => r.category === cat);
+        const appCatRecs = allCatRecs.filter(isApplicableBudgetRecord);
+        const m = computeBudgetMetrics(appCatRecs);
+        const color = BUDGET_CATEGORY_COLORS[cat] || '#64748b';
+        const isFocused = summaryFocusedCategory === cat ? 'bulk-row-focused' : '';
+
+        const uniqueStatuses = Array.from(new Set(allCatRecs.map((r) => r.status || 'Active')));
+        const currentStatus = uniqueStatuses.length === 1 ? uniqueStatuses[0] : '';
+        const sharedRemark =
+          allCatRecs.length > 0 && allCatRecs.every((r) => (r.remarks || '') === (allCatRecs[0].remarks || ''))
+            ? allCatRecs[0].remarks || ''
+            : '';
+
+        return `
+          <tr class="${isFocused}" data-bulk-cat="${escapeHtml(cat)}">
+            <td>
+              <span class="bulk-cat-label">
+                <span class="bulk-cat-dot" style="background-color: ${color};"></span>
+                ${escapeHtml(cat)}
+              </span>
+            </td>
+            <td>
+              <input type="number" class="bulk-edit-input js-cat-budget-input" data-cat="${escapeHtml(cat)}" min="0" step="any" value="${m.totalBudget}">
+            </td>
+            <td>
+              <input type="number" class="bulk-edit-input js-cat-actual-input" data-cat="${escapeHtml(cat)}" min="0" step="any" value="${m.totalSpending}">
+            </td>
+            <td style="text-align: right; font-weight: 600;" class="js-cat-rem-cell">${formatPHP(m.remainingBudget)}</td>
+            <td style="text-align: right; font-weight: 700;" class="js-cat-util-cell">${m.utilizationText}</td>
+            <td>
+              <select class="bulk-edit-input js-cat-status-select" data-cat="${escapeHtml(cat)}">
+                <option value="" ${currentStatus === '' ? 'selected' : ''}>Keep (${allCatRecs.length || 0})</option>
+                <option value="Active" ${currentStatus === 'Active' ? 'selected' : ''}>Active</option>
+                <option value="Ongoing" ${currentStatus === 'Ongoing' ? 'selected' : ''}>Ongoing</option>
+                <option value="Completed" ${currentStatus === 'Completed' ? 'selected' : ''}>Completed</option>
+                <option value="Planned" ${currentStatus === 'Planned' ? 'selected' : ''}>Planned</option>
+                <option value="Inactive" ${currentStatus === 'Inactive' ? 'selected' : ''}>Inactive</option>
+              </select>
+            </td>
+            <td>
+              <input type="text" class="bulk-edit-input js-cat-remarks-input" data-cat="${escapeHtml(cat)}" placeholder="Sector note / remarks" value="${escapeHtml(sharedRemark)}">
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    updateSummaryCategoriesFooter();
+
+    tbody.querySelectorAll('.js-cat-budget-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const cat = inp.getAttribute('data-cat');
+        const val = Math.max(0, parseFloat(inp.value || '0') || 0);
+        const recs = ensureDraftRecordsExist((r) => r.category === cat, {
+          category: cat,
+          quarter: 'Q1',
+          description: `${cat} Annual Allocation`
+        });
+        distributeTargetAmountAcrossRecords(recs, 'budget', val);
+        const row = inp.closest('tr');
+        const m = computeBudgetMetrics(summaryWorkingRecords.filter((r) => isApplicableBudgetRecord(r) && r.category === cat));
+        if (row) {
+          const remCell = row.querySelector('.js-cat-rem-cell');
+          const utilCell = row.querySelector('.js-cat-util-cell');
+          if (remCell) remCell.textContent = formatPHP(m.remainingBudget);
+          if (utilCell) utilCell.textContent = m.utilizationText;
+        }
+        updateSummaryCategoriesFooter();
+        refreshSummaryOverviewFields(false);
+      });
+    });
+
+    tbody.querySelectorAll('.js-cat-actual-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const cat = inp.getAttribute('data-cat');
+        const val = Math.max(0, parseFloat(inp.value || '0') || 0);
+        const recs = ensureDraftRecordsExist((r) => r.category === cat, {
+          category: cat,
+          quarter: 'Q1',
+          description: `${cat} Annual Expenditure`
+        });
+        distributeTargetAmountAcrossRecords(recs, 'actual', val);
+        const row = inp.closest('tr');
+        const m = computeBudgetMetrics(summaryWorkingRecords.filter((r) => isApplicableBudgetRecord(r) && r.category === cat));
+        if (row) {
+          const remCell = row.querySelector('.js-cat-rem-cell');
+          const utilCell = row.querySelector('.js-cat-util-cell');
+          if (remCell) remCell.textContent = formatPHP(m.remainingBudget);
+          if (utilCell) utilCell.textContent = m.utilizationText;
+        }
+        updateSummaryCategoriesFooter();
+        refreshSummaryOverviewFields(false);
+      });
+    });
+
+    tbody.querySelectorAll('.js-cat-status-select').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const cat = sel.getAttribute('data-cat');
+        const newStatus = sel.value;
+        if (!newStatus) return;
+        let catRecs = summaryWorkingRecords.filter((r) => r.category === cat);
+        if (catRecs.length === 0 && newStatus !== 'Inactive') {
+          catRecs = ensureDraftRecordsExist((r) => r.category === cat, { category: cat, quarter: 'Q1' });
+        }
+        catRecs.forEach((r) => {
+          r.status = newStatus;
+        });
+        renderSummaryCategoriesPane();
+        refreshSummaryOverviewFields(false);
+      });
+    });
+
+    tbody.querySelectorAll('.js-cat-remarks-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const cat = inp.getAttribute('data-cat');
+        const note = inp.value.trim();
+        summaryWorkingRecords
+          .filter((r) => r.category === cat)
+          .forEach((r) => {
+            r.remarks = note;
+          });
+      });
+    });
+  }
+
+  function updateSummaryCategoriesFooter() {
+    const tfoot = document.getElementById('sumCategoriesEditTfoot');
+    if (!tfoot) return;
+    const m = computeBudgetMetrics(getApplicableDraftRecords());
+    tfoot.innerHTML = `
+      <tr>
+        <td>Total Active FY ${escapeHtml(summaryDraftYear)}</td>
+        <td>${formatPHP(m.totalBudget)}</td>
+        <td>${formatPHP(m.totalSpending)}</td>
+        <td style="text-align: right;">${formatPHP(m.remainingBudget)}</td>
+        <td style="text-align: right;">${m.utilizationText}</td>
+        <td colspan="2">Synced with Pie Chart &amp; Summary Cards</td>
+      </tr>
+    `;
+  }
+
+  function renderSummaryQuartersPane() {
+    const tbody = document.getElementById('sumQuartersEditTbody');
+    const tfoot = document.getElementById('sumQuartersEditTfoot');
+    if (!tbody || !tfoot) return;
+
+    const quarterTitles = {
+      Q1: 'Q1 (Jan – Mar)',
+      Q2: 'Q2 (Apr – Jun)',
+      Q3: 'Q3 (Jul – Sep)',
+      Q4: 'Q4 (Oct – Dec)'
+    };
+
+    tbody.innerHTML = BUDGET_QUARTERS.map((q) => {
+      const allQRecs = summaryWorkingRecords.filter((r) => r.quarter === q);
+      const appQRecs = allQRecs.filter(isApplicableBudgetRecord);
+      const m = computeBudgetMetrics(appQRecs);
+
+      const uniqueStatuses = Array.from(new Set(allQRecs.map((r) => r.status || 'Active')));
+      const currentStatus = uniqueStatuses.length === 1 ? uniqueStatuses[0] : '';
+      const sharedRemark =
+        allQRecs.length > 0 && allQRecs.every((r) => (r.remarks || '') === (allQRecs[0].remarks || ''))
+          ? allQRecs[0].remarks || ''
+          : '';
+
+      return `
+        <tr data-bulk-quarter="${escapeHtml(q)}">
+          <td><strong>${escapeHtml(quarterTitles[q] || q)}</strong></td>
+          <td>
+            <input type="number" class="bulk-edit-input js-q-budget-input" data-quarter="${escapeHtml(q)}" min="0" step="any" value="${m.totalBudget}">
+          </td>
+          <td>
+            <input type="number" class="bulk-edit-input js-q-actual-input" data-quarter="${escapeHtml(q)}" min="0" step="any" value="${m.totalSpending}">
+          </td>
+          <td style="text-align: right; font-weight: 600;" class="js-q-rem-cell">${formatPHP(m.remainingBudget)}</td>
+          <td style="text-align: right; font-weight: 700;" class="js-q-util-cell">${m.utilizationText}</td>
+          <td>
+            <select class="bulk-edit-input js-q-status-select" data-quarter="${escapeHtml(q)}">
+              <option value="" ${currentStatus === '' ? 'selected' : ''}>Keep (${allQRecs.length || 0})</option>
+              <option value="Active" ${currentStatus === 'Active' ? 'selected' : ''}>Active</option>
+              <option value="Ongoing" ${currentStatus === 'Ongoing' ? 'selected' : ''}>Ongoing</option>
+              <option value="Completed" ${currentStatus === 'Completed' ? 'selected' : ''}>Completed</option>
+              <option value="Planned" ${currentStatus === 'Planned' ? 'selected' : ''}>Planned</option>
+              <option value="Inactive" ${currentStatus === 'Inactive' ? 'selected' : ''}>Inactive</option>
+            </select>
+          </td>
+          <td>
+            <input type="text" class="bulk-edit-input js-q-remarks-input" data-quarter="${escapeHtml(q)}" placeholder="Quarter note / remarks" value="${escapeHtml(sharedRemark)}">
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    updateSummaryQuartersFooter();
+
+    tbody.querySelectorAll('.js-q-budget-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const q = inp.getAttribute('data-quarter');
+        const val = Math.max(0, parseFloat(inp.value || '0') || 0);
+        const recs = ensureDraftRecordsExist((r) => r.quarter === q, {
+          quarter: q,
+          category: 'Infrastructure',
+          description: `${q} Consolidated Budget Allocation`
+        });
+        distributeTargetAmountAcrossRecords(recs, 'budget', val);
+        const row = inp.closest('tr');
+        const m = computeBudgetMetrics(summaryWorkingRecords.filter((r) => isApplicableBudgetRecord(r) && r.quarter === q));
+        if (row) {
+          const remCell = row.querySelector('.js-q-rem-cell');
+          const utilCell = row.querySelector('.js-q-util-cell');
+          if (remCell) remCell.textContent = formatPHP(m.remainingBudget);
+          if (utilCell) utilCell.textContent = m.utilizationText;
+        }
+        updateSummaryQuartersFooter();
+        refreshSummaryOverviewFields(false);
+      });
+    });
+
+    tbody.querySelectorAll('.js-q-actual-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const q = inp.getAttribute('data-quarter');
+        const val = Math.max(0, parseFloat(inp.value || '0') || 0);
+        const recs = ensureDraftRecordsExist((r) => r.quarter === q, {
+          quarter: q,
+          category: 'Infrastructure',
+          description: `${q} Consolidated Expenditure`
+        });
+        distributeTargetAmountAcrossRecords(recs, 'actual', val);
+        const row = inp.closest('tr');
+        const m = computeBudgetMetrics(summaryWorkingRecords.filter((r) => isApplicableBudgetRecord(r) && r.quarter === q));
+        if (row) {
+          const remCell = row.querySelector('.js-q-rem-cell');
+          const utilCell = row.querySelector('.js-q-util-cell');
+          if (remCell) remCell.textContent = formatPHP(m.remainingBudget);
+          if (utilCell) utilCell.textContent = m.utilizationText;
+        }
+        updateSummaryQuartersFooter();
+        refreshSummaryOverviewFields(false);
+      });
+    });
+
+    tbody.querySelectorAll('.js-q-status-select').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const q = sel.getAttribute('data-quarter');
+        const newStatus = sel.value;
+        if (!newStatus) return;
+        let qRecs = summaryWorkingRecords.filter((r) => r.quarter === q);
+        if (qRecs.length === 0 && newStatus !== 'Inactive') {
+          qRecs = ensureDraftRecordsExist((r) => r.quarter === q, { quarter: q, category: 'Infrastructure' });
+        }
+        qRecs.forEach((r) => {
+          r.status = newStatus;
+        });
+        renderSummaryQuartersPane();
+        refreshSummaryOverviewFields(false);
+      });
+    });
+
+    tbody.querySelectorAll('.js-q-remarks-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const q = inp.getAttribute('data-quarter');
+        const note = inp.value.trim();
+        summaryWorkingRecords
+          .filter((r) => r.quarter === q)
+          .forEach((r) => {
+            r.remarks = note;
+          });
+      });
+    });
+  }
+
+  function updateSummaryQuartersFooter() {
+    const tfoot = document.getElementById('sumQuartersEditTfoot');
+    if (!tfoot) return;
+    const m = computeBudgetMetrics(getApplicableDraftRecords());
+    tfoot.innerHTML = `
+      <tr>
+        <td>Annual Total (FY ${escapeHtml(summaryDraftYear)})</td>
+        <td>${formatPHP(m.totalBudget)}</td>
+        <td>${formatPHP(m.totalSpending)}</td>
+        <td style="text-align: right;">${formatPHP(m.remainingBudget)}</td>
+        <td style="text-align: right;">${m.utilizationText}</td>
+        <td colspan="2">Synced with Bar Graph &amp; Summary Cards</td>
+      </tr>
+    `;
+  }
+
+  function switchSummaryModalTab(tabKey) {
+    const panes = {
+      overview: document.getElementById('sumTabPaneOverview'),
+      categories: document.getElementById('sumTabPaneCategories'),
+      quarters: document.getElementById('sumTabPaneQuarters')
+    };
+
+    document.querySelectorAll('.sum-tab-btn').forEach((btn) => {
+      const isMatch = btn.getAttribute('data-sum-tab') === tabKey;
+      btn.classList.toggle('active', isMatch);
+      btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+    });
+
+    Object.entries(panes).forEach(([k, el]) => {
+      if (el) el.classList.toggle('active', k === tabKey);
+    });
+
+    if (tabKey === 'overview') {
+      refreshSummaryOverviewFields(false);
+    } else if (tabKey === 'categories') {
+      renderSummaryCategoriesPane();
+    } else if (tabKey === 'quarters') {
+      renderSummaryQuartersPane();
+    }
+  }
+
+  function openBudgetSummaryModal(mode = 'overview', focusCategory = null) {
+    const modal = document.getElementById('adminBudgetSummaryModal');
+    if (!modal) return;
+
+    syncAdminBudgetYearSelectors();
+    const filterYear = document.getElementById('adminBudgetYearFilter')?.value;
+    const initialYear = filterYear && filterYear !== 'all' ? filterYear : '2026';
+
+    const sumYearSelect = document.getElementById('sumEditYear');
+    if (sumYearSelect) sumYearSelect.value = initialYear;
+
+    summaryFocusedCategory = focusCategory;
+    loadDraftRecordsForYear(initialYear);
+    refreshSummaryOverviewFields(false);
+    renderSummaryCategoriesPane();
+    renderSummaryQuartersPane();
+
+    let targetTab = 'overview';
+    if (mode === 'categories' || focusCategory) targetTab = 'categories';
+    else if (mode === 'quarters') targetTab = 'quarters';
+
+    switchSummaryModalTab(targetTab);
+    modal.classList.add('active');
+
+    setTimeout(() => {
+      if (focusCategory) {
+        const catInput = Array.from(document.querySelectorAll('.js-cat-budget-input')).find(
+          (el) => el.getAttribute('data-cat') === focusCategory
+        );
+        catInput?.focus();
+        catInput?.select?.();
+      } else if (mode === 'summary-total') {
+        const el = document.getElementById('sumInputTotalBudget');
+        el?.focus();
+        el?.select?.();
+      } else if (mode === 'summary-spent') {
+        const el = document.getElementById('sumInputTotalSpending');
+        el?.focus();
+        el?.select?.();
+      } else if (mode === 'summary-remaining') {
+        const el = document.getElementById('sumInputRemainingBudget');
+        el?.focus();
+        el?.select?.();
+      } else if (mode === 'summary-util' || mode === 'summary-utilization') {
+        const el = document.getElementById('sumInputUtilRate');
+        el?.focus();
+        el?.select?.();
+      }
+    }, 90);
+  }
+
+  function closeBudgetSummaryModal() {
+    const modal = document.getElementById('adminBudgetSummaryModal');
+    if (modal) modal.classList.remove('active');
+    summaryFocusedCategory = null;
+  }
+
+  function saveBudgetSummaryModalChanges() {
+    const batchStatus = document.getElementById('sumInputBatchStatus')?.value || '';
+    const batchRemarks = (document.getElementById('sumInputRemarks')?.value || '').trim();
+
+    if (batchStatus) {
+      if (summaryWorkingRecords.length === 0 && batchStatus !== 'Inactive') {
+        ensureDraftRecordsExist(() => true, { quarter: 'Q1', category: 'Infrastructure' });
+      }
+      summaryWorkingRecords.forEach((r) => {
+        r.status = batchStatus;
+      });
+    }
+
+    if (batchRemarks) {
+      summaryWorkingRecords.forEach((r) => {
+        r.remarks = batchRemarks;
+      });
+    }
+
+    const otherYearRecords = adminBudgetRecords.filter((r) => String(r.year) !== String(summaryDraftYear));
+    const committedYearRecords = summaryWorkingRecords.map((r, idx) =>
+      normalizeBudgetRecord({ ...r, year: summaryDraftYear, updatedAt: Date.now() }, idx)
+    );
+
+    adminBudgetRecords = [...committedYearRecords, ...otherYearRecords];
+    saveAdminBudgetRecords();
+    closeBudgetSummaryModal();
+    renderAdminBudgetTable();
+
+    showAdminToast(
+      'Budget Synchronized',
+      `FY ${summaryDraftYear} budget summary, utilization bar, bar graph, and pie chart updated on the Public Home Page.`,
+      'success'
+    );
   }
 
   function exportBudgetCSV() {
@@ -6024,13 +7075,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const quarterVal = quarterFilter?.value || 'all';
     const catVal = categoryFilter?.value || 'all';
 
-    const records = adminBudgetRecords.filter(item => {
-      const matchYear = (yearVal === 'all' || item.year === yearVal);
-      const matchQuarter = (quarterVal === 'all' || item.quarter === quarterVal);
-      const matchCategory = (catVal === 'all' || item.category === catVal);
-      const matchSearch = !searchVal ||
+    const records = adminBudgetRecords.filter((item) => {
+      const matchYear = yearVal === 'all' || String(item.year) === String(yearVal);
+      const matchQuarter = quarterVal === 'all' || item.quarter === quarterVal;
+      const matchCategory = catVal === 'all' || item.category === catVal;
+      const matchSearch =
+        !searchVal ||
         (item.category && item.category.toLowerCase().includes(searchVal)) ||
-        (item.description && item.description.toLowerCase().includes(searchVal));
+        (item.description && item.description.toLowerCase().includes(searchVal)) ||
+        (item.remarks && item.remarks.toLowerCase().includes(searchVal));
       return matchYear && matchQuarter && matchCategory && matchSearch;
     });
 
@@ -6039,20 +7092,36 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    const headers = ['Record ID', 'Fiscal Year', 'Quarter', 'Sectoral Category', 'Description / Purpose', 'Budget (PHP)', 'Actual Spent (PHP)', 'Utilization Rate (%)'];
-    const rows = records.map(r => {
+    const headers = [
+      'Record ID',
+      'Fiscal Year',
+      'Quarter',
+      'Sectoral Category',
+      'Description / Purpose',
+      'Remarks',
+      'Status',
+      'Allocated Budget (PHP)',
+      'Actual Spending (PHP)',
+      'Remaining Budget (PHP)',
+      'Utilization Rate (%)'
+    ];
+    const rows = records.map((r) => {
       const b = Number(r.budget) || 0;
       const a = Number(r.actual) || 0;
-      const u = b > 0 ? Math.round((a / b) * 100) : 0;
+      const rem = b - a;
+      const u = b > 0 ? formatPercentValue((a / b) * 100) : '0%';
       return [
         r.id,
         r.year,
         r.quarter,
         `"${(r.category || '').replace(/"/g, '""')}"`,
         `"${(r.description || '').replace(/"/g, '""')}"`,
+        `"${(r.remarks || '').replace(/"/g, '""')}"`,
+        `"${(r.status || 'Active').replace(/"/g, '""')}"`,
         b,
         a,
-        `${u}%`
+        rem,
+        u
       ].join(',');
     });
 
@@ -6069,7 +7138,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function attachBudgetRowActions() {
-    document.querySelectorAll('.btn-budget-action.action-edit').forEach(btn => {
+    document.querySelectorAll('.btn-budget-action.action-edit').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = btn.getAttribute('data-id');
@@ -6077,7 +7146,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
 
-    document.querySelectorAll('.btn-budget-action.action-delete').forEach(btn => {
+    document.querySelectorAll('.btn-budget-action.action-delete').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = btn.getAttribute('data-id');
@@ -6087,6 +7156,9 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function initAdminBudgetModule() {
+    initAdminPublicSyncedCharts();
+    syncAdminBudgetYearSelectors();
+
     const searchInput = document.getElementById('adminBudgetSearchInput');
     if (searchInput) {
       searchInput.addEventListener('input', () => renderAdminBudgetTable());
@@ -6116,6 +7188,23 @@ document.addEventListener('DOMContentLoaded', function () {
         if (categoryFilter) categoryFilter.value = 'all';
         renderAdminBudgetTable();
         showAdminToast('Filters Reset', 'Showing all Fiscal Year 2026 budget allocations.', 'info');
+      });
+    }
+
+    // Admin Pie Chart Mode Toggle (Actual vs Allocated)
+    const adminPieToggle = document.getElementById('adminPieChartModeToggle');
+    if (adminPieToggle) {
+      adminPieToggle.querySelectorAll('.admin-pie-mode-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          adminPieChartMode = btn.getAttribute('data-admin-pie-mode') || 'actual';
+          adminPieToggle.querySelectorAll('.admin-pie-mode-btn').forEach((b) => {
+            b.classList.toggle('active', b === btn);
+          });
+          const yr = document.getElementById('adminBudgetYearFilter')?.value || '2026';
+          const q = document.getElementById('adminBudgetQuarterFilter')?.value || 'all';
+          const c = document.getElementById('adminBudgetCategoryFilter')?.value || 'all';
+          updateAdminPublicSyncedCharts(yr, q, c);
+        });
       });
     }
 
@@ -6162,17 +7251,27 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
-    // Real-time input clearing and restrictions for budget form
+    // Real-time validation clearing & live Remaining / Utilization calculation inside Record Modal
     const bgtAmtInput = document.getElementById('budgetInputAmount');
+    const bgtActInput = document.getElementById('budgetInputActual');
     const bgtYearInput = document.getElementById('budgetInputYear');
     const bgtDescInput = document.getElementById('budgetInputDesc');
 
     if (bgtAmtInput) {
       bgtAmtInput.addEventListener('input', function () {
-        this.value = this.value.replace(/\D/g, '');
         this.classList.remove('is-invalid', 'input-error');
         const err = document.getElementById('budgetInputAmountError');
         if (err) err.textContent = '';
+        updateRecordModalCalcPreview();
+      });
+    }
+
+    if (bgtActInput) {
+      bgtActInput.addEventListener('input', function () {
+        this.classList.remove('is-invalid', 'input-error');
+        const err = document.getElementById('budgetInputActualError');
+        if (err) err.textContent = '';
+        updateRecordModalCalcPreview();
       });
     }
 
@@ -6192,26 +7291,150 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
+    // Wire all Summary / Utilization / Bar Graph / Pie Chart Edit Buttons
+    document.querySelectorAll('[data-budget-edit]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = btn.getAttribute('data-budget-edit') || 'overview';
+        openBudgetSummaryModal(mode, null);
+      });
+    });
+
+    // Wire Category Card inline Edit Buttons (without triggering card filter)
+    document.querySelectorAll('[data-sector-edit]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cat = btn.getAttribute('data-sector-edit');
+        openBudgetSummaryModal('categories', cat);
+      });
+    });
+
+    // Summary Modal Tabs, Year Selector, Live Bi-directional Formulas, Save & Cancel
+    document.querySelectorAll('.sum-tab-btn').forEach((tabBtn) => {
+      tabBtn.addEventListener('click', () => {
+        const tabKey = tabBtn.getAttribute('data-sum-tab') || 'overview';
+        switchSummaryModalTab(tabKey);
+      });
+    });
+
+    const sumEditYear = document.getElementById('sumEditYear');
+    if (sumEditYear) {
+      sumEditYear.addEventListener('change', () => {
+        loadDraftRecordsForYear(sumEditYear.value);
+        refreshSummaryOverviewFields(false);
+        renderSummaryCategoriesPane();
+        renderSummaryQuartersPane();
+      });
+    }
+
+    const sumTotalInput = document.getElementById('sumInputTotalBudget');
+    const sumSpentInput = document.getElementById('sumInputTotalSpending');
+    const sumRemInput = document.getElementById('sumInputRemainingBudget');
+    const sumUtilInput = document.getElementById('sumInputUtilRate');
+
+    if (sumTotalInput) {
+      sumTotalInput.addEventListener('input', () => {
+        const newTotal = Math.max(0, parseFloat(sumTotalInput.value || '0') || 0);
+        const recs = ensureDraftRecordsExist(() => true, {
+          quarter: 'Q1',
+          category: 'Infrastructure',
+          description: `FY ${summaryDraftYear} Annual Budget Allocation`
+        });
+        distributeTargetAmountAcrossRecords(recs, 'budget', newTotal);
+        refreshSummaryOverviewFields(true);
+      });
+    }
+
+    if (sumSpentInput) {
+      sumSpentInput.addEventListener('input', () => {
+        const newSpent = Math.max(0, parseFloat(sumSpentInput.value || '0') || 0);
+        const recs = ensureDraftRecordsExist(() => true, {
+          quarter: 'Q1',
+          category: 'Infrastructure',
+          description: `FY ${summaryDraftYear} Annual Expenditure`
+        });
+        distributeTargetAmountAcrossRecords(recs, 'actual', newSpent);
+        refreshSummaryOverviewFields(true);
+      });
+    }
+
+    if (sumRemInput) {
+      sumRemInput.addEventListener('input', () => {
+        const desiredRemaining = parseFloat(sumRemInput.value || '0') || 0;
+        const recs = ensureDraftRecordsExist(() => true, {
+          quarter: 'Q1',
+          category: 'Infrastructure',
+          description: `FY ${summaryDraftYear} Budget Allocation`
+        });
+        const currentMetrics = computeBudgetMetrics(recs);
+        if (desiredRemaining > currentMetrics.totalBudget) {
+          distributeTargetAmountAcrossRecords(recs, 'budget', Math.max(0, desiredRemaining));
+          distributeTargetAmountAcrossRecords(recs, 'actual', 0);
+        } else {
+          const newSpent = Math.max(0, currentMetrics.totalBudget - desiredRemaining);
+          distributeTargetAmountAcrossRecords(recs, 'actual', newSpent);
+        }
+        refreshSummaryOverviewFields(true);
+      });
+    }
+
+    if (sumUtilInput) {
+      sumUtilInput.addEventListener('input', () => {
+        const desiredRate = Math.max(0, parseFloat(sumUtilInput.value || '0') || 0);
+        const recs = ensureDraftRecordsExist(() => true, {
+          quarter: 'Q1',
+          category: 'Infrastructure',
+          description: `FY ${summaryDraftYear} Budget Allocation`
+        });
+        const currentMetrics = computeBudgetMetrics(recs);
+        const newSpent =
+          currentMetrics.totalBudget > 0
+            ? Math.round((currentMetrics.totalBudget * desiredRate) / 100)
+            : 0;
+        distributeTargetAmountAcrossRecords(recs, 'actual', newSpent);
+        refreshSummaryOverviewFields(true);
+      });
+    }
+
+    const summaryModal = document.getElementById('adminBudgetSummaryModal');
+    if (summaryModal) {
+      summaryModal.addEventListener('click', (e) => {
+        if (e.target === summaryModal) closeBudgetSummaryModal();
+      });
+    }
+
+    document.getElementById('btnCloseBudgetSummaryModal')?.addEventListener('click', closeBudgetSummaryModal);
+    document.getElementById('btnCancelBudgetSummaryModal')?.addEventListener('click', closeBudgetSummaryModal);
+    document.getElementById('btnSaveBudgetSummaryModal')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      saveBudgetSummaryModalChanges();
+    });
+
     // Sector cards quick click-to-filter
     const sectorCards = [
       { id: 'secCardInfra', cat: 'Infrastructure' },
       { id: 'secCardHealth', cat: 'Health' },
       { id: 'secCardSocial', cat: 'Social Services' },
-      { id: 'secCardAdmin', cat: 'Administration' }
+      { id: 'secCardAdmin', cat: 'Administration' },
+      { id: 'secCardEmergency', cat: 'Emergency Preparedness' },
+      { id: 'secCardEduSports', cat: 'Education, Sports & Recreation' },
+      { id: 'secCardAgri', cat: 'Agriculture & Livelihood' },
+      { id: 'secCardEnv', cat: 'Environment & Waste Management' }
     ];
 
-    sectorCards.forEach(s => {
+    sectorCards.forEach((s) => {
       const cardEl = document.getElementById(s.id);
       if (cardEl) {
-        cardEl.addEventListener('click', () => {
-          const categoryFilter = document.getElementById('adminBudgetCategoryFilter');
-          if (!categoryFilter) return;
+        cardEl.addEventListener('click', (e) => {
+          if (e.target.closest('[data-sector-edit]')) return;
+          const catSelect = document.getElementById('adminBudgetCategoryFilter');
+          if (!catSelect) return;
 
-          if (categoryFilter.value === s.cat) {
-            categoryFilter.value = 'all';
+          if (catSelect.value === s.cat) {
+            catSelect.value = 'all';
             showAdminToast('Filter Reset', 'Showing all sectoral categories in quarterly budget list.', 'info');
           } else {
-            categoryFilter.value = s.cat;
+            catSelect.value = s.cat;
             showAdminToast('Sector Filter', `Filtered quarterly budget ledger for ${s.cat}.`, 'info');
           }
           renderAdminBudgetTable();
@@ -6222,6 +7445,12 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         });
       }
+    });
+
+    // Cross-tab synchronization listener
+    subscribeBudgetRecords((latest) => {
+      adminBudgetRecords = Array.isArray(latest) ? latest : loadBudgetRecords();
+      renderAdminBudgetTable();
     });
 
     renderAdminBudgetTable();

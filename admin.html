@@ -126,6 +126,7 @@
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
               <span class="nav-text">Announcements</span>
+              <span class="nav-counter" id="navCounterAnnouncements">6</span>
             </button>
           </li>
           <li class="nav-item">
@@ -155,10 +156,10 @@
       <!-- Sidebar Footer: Session Card & Portal Switchers -->
       <div class="sidebar-footer">
         <div class="admin-profile-card">
-          <div class="profile-avatar">DR</div>
+          <div class="profile-avatar">VM</div>
           <div class="profile-meta">
-            <span class="profile-name">Hon. Danilo M. Ramos</span>
-            <span class="profile-role">Punong Barangay (Admin)</span>
+            <span class="profile-name" title="Ma. Victoria M. Marasigan">Ma. Victoria M. Marasigan</span>
+            <span class="profile-role">Barangay Secretary (Admin)</span>
           </div>
         </div>
         <div class="sidebar-quick-links" style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 6px !important; width: 100% !important;">
@@ -301,7 +302,7 @@
           <!-- Secretary Profile Tag -->
           <div class="topbar-user-badge" title="Logged in as Barangay Secretary">
             <span class="user-role-tag">SECRETARIAT</span>
-            <span class="user-name-tag">M. E. Cruz</span>
+            <span class="user-name-tag">Ma. Victoria M. Marasigan</span>
           </div>
 
           <!-- Topbar Logout Action -->
@@ -829,157 +830,373 @@
             <div>
               <span class="view-kicker">PUBLIC TREASURY &amp; DILG FULL DISCLOSURE</span>
               <h2 class="section-title">Budget Allocation &amp; Expense Records</h2>
-              <p class="section-sub">Track quarterly budget allocation, actual spending, and fund utilization rates across barangay categories.</p>
+              <p class="section-sub">Manage annual appropriations, category allocations, and quarterly spending—automatically synchronized with the Public Transparency Dashboard.</p>
             </div>
-            <div class="toolbar-right budget-header-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <button type="button" class="btn-budget-export" id="btnExportBudgetReport">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                <span>Export CSV / Report</span>
-              </button>
-              <button type="button" class="btn-budget-primary" id="btnOpenAddBudgetModal">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>Add Record</span>
-              </button>
+            <div class="toolbar-right budget-header-actions">
+              <div class="budget-header-row budget-header-row-primary">
+                <button type="button" class="btn-budget-primary" id="btnOpenAddBudgetModal">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>Add Record</span>
+                </button>
+              </div>
+              <div class="budget-header-row budget-header-row-secondary">
+                <button type="button" class="btn-budget-export" id="btnOpenBudgetSummaryModal" data-budget-edit="overview">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                  <span>Edit Budget Summary</span>
+                </button>
+                <button type="button" class="btn-budget-export" id="btnExportBudgetReport">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Export CSV / Report</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Metric Summary Cards Top Bar (4 Horizontal Metric Stat Cards) -->
+          <!-- Metric Summary Cards Top Bar (4 Horizontal Metric Stat Cards with Edit Controls) -->
           <div class="proposal-metrics-bar" id="budgetMetricsBar">
-            <!-- 1. TOTAL BUDGET -->
+            <!-- 1. TOTAL ANNUAL BUDGET -->
             <div class="proposal-metric-card" id="bgtMetricCardTotal">
               <div class="metric-card-top">
-                <span class="metric-card-label">TOTAL ALLOCATED BUDGET</span>
-                <span class="metric-badge badge-blue" id="bgtMetricYearBadge">
-                  <span class="status-dot dot-blue"></span> FY 2026
-                </span>
+                <span class="metric-card-label">TOTAL ANNUAL BUDGET</span>
+                <div class="metric-card-actions-group">
+                  <span class="metric-badge badge-blue" id="bgtMetricYearBadge">
+                    <span class="status-dot dot-blue"></span> FY 2026
+                  </span>
+                  <button type="button" class="btn-card-edit-inline" data-budget-edit="summary-total" title="Edit Total Annual Budget" aria-label="Edit Total Annual Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="metric-card-body">
-                <span class="metric-card-count" id="bgtMetricTotal" style="color: #0b1e36;">₱2,185,000</span>
-                <span class="metric-card-sub">Approved appropriations ceiling</span>
+                <span class="metric-card-count metric-count-navy" id="bgtMetricTotal">₱2,185,000</span>
+                <span class="metric-card-sub" id="bgtMetricTotalSub">Approved appropriations ceiling</span>
               </div>
             </div>
 
-            <!-- 2. ACTUAL SPENT -->
+            <!-- 2. TOTAL SPENDING -->
             <div class="proposal-metric-card" id="bgtMetricCardSpent">
               <div class="metric-card-top">
-                <span class="metric-card-label">ACTUAL SPENT</span>
-                <span class="metric-badge badge-blue" id="bgtMetricSpentBadge">
-                  <span class="status-dot dot-blue"></span> Disbursed
-                </span>
+                <span class="metric-card-label">TOTAL SPENDING</span>
+                <div class="metric-card-actions-group">
+                  <span class="metric-badge badge-blue" id="bgtMetricSpentBadge">
+                    <span class="status-dot dot-blue"></span> Disbursed
+                  </span>
+                  <button type="button" class="btn-card-edit-inline" data-budget-edit="summary-spent" title="Edit Total Spending" aria-label="Edit Total Spending">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="metric-card-body">
-                <span class="metric-card-count" id="bgtMetricSpent" style="color: #0284c7;">₱1,418,000</span>
-                <span class="metric-card-sub">Total vouchers &amp; contracts paid</span>
+                <span class="metric-card-count metric-count-sky" id="bgtMetricSpent">₱1,418,000</span>
+                <span class="metric-card-sub" id="bgtMetricSpentSub">Total vouchers &amp; contracts paid</span>
               </div>
             </div>
 
-            <!-- 3. REMAINING BALANCE -->
+            <!-- 3. REMAINING BUDGET -->
             <div class="proposal-metric-card" id="bgtMetricCardRemaining">
               <div class="metric-card-top">
-                <span class="metric-card-label">REMAINING BALANCE</span>
-                <span class="metric-badge badge-green" id="bgtMetricRemainingBadge">
-                  <span class="status-dot dot-green"></span> Available
-                </span>
+                <span class="metric-card-label">REMAINING BUDGET</span>
+                <div class="metric-card-actions-group">
+                  <span class="metric-badge badge-green" id="bgtMetricRemainingBadge">
+                    <span class="status-dot dot-green"></span> Available
+                  </span>
+                  <button type="button" class="btn-card-edit-inline" data-budget-edit="summary-remaining" title="Edit Remaining Budget" aria-label="Edit Remaining Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="metric-card-body">
-                <span class="metric-card-count" id="bgtMetricRemaining" style="color: #15803d;">₱767,000</span>
-                <span class="metric-card-sub">Remaining unencumbered funds</span>
+                <span class="metric-card-count metric-count-emerald" id="bgtMetricRemaining">₱767,000</span>
+                <span class="metric-card-sub" id="bgtMetricRemainingSub">Remaining unencumbered funds</span>
               </div>
             </div>
 
             <!-- 4. UTILIZATION RATE -->
             <div class="proposal-metric-card" id="bgtMetricCardUtil">
               <div class="metric-card-top">
-                <span class="metric-card-label">OVERALL UTILIZATION</span>
-                <span class="metric-badge badge-amber" id="bgtMetricUtilBadge">
-                  <span class="status-dot dot-amber"></span> 65% Rate
-                </span>
+                <span class="metric-card-label">UTILIZATION RATE</span>
+                <div class="metric-card-actions-group">
+                  <span class="metric-badge badge-amber" id="bgtMetricUtilBadge">
+                    <span class="status-dot dot-amber"></span> 64.9% Rate
+                  </span>
+                  <button type="button" class="btn-card-edit-inline" data-budget-edit="summary-util" title="Edit Utilization Rate" aria-label="Edit Utilization Rate">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="metric-card-body">
-                <span class="metric-card-count" id="bgtMetricUtil" style="color: #0f172a;">65%</span>
-                <span class="metric-card-sub">Fund disbursement velocity</span>
+                <span class="metric-card-count metric-count-slate" id="bgtMetricUtil">64.9%</span>
+                <span class="metric-card-sub" id="bgtMetricUtilSub">Fund disbursement velocity</span>
               </div>
             </div>
           </div>
 
-          <!-- Sectoral Breakdown Summary Cards -->
+          <!-- Overall Budget Utilization Progress Bar Card (Synced with Public Home Page) -->
+          <div class="admin-card admin-budget-util-card" id="adminBudgetUtilizationCard">
+            <div class="admin-util-header">
+              <div>
+                <span class="card-kicker">PUBLIC TRANSPARENCY PROGRESS BAR</span>
+                <h3 class="card-title">Budget Utilization</h3>
+              </div>
+              <div class="metric-card-actions-group">
+                <span class="admin-util-badge" id="adminUtilBadge">64.9% spent</span>
+                <button type="button" class="btn-card-edit-inline" data-budget-edit="summary-utilization" title="Edit Budget Utilization">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <span>Edit</span>
+                </button>
+              </div>
+            </div>
+            <div class="admin-util-track" role="progressbar" id="adminUtilProgressBar" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100">
+              <div class="admin-util-spent" id="adminUtilSpentBar" style="width: 64.9%;"></div>
+              <div class="admin-util-remaining" id="adminUtilRemainingBar" style="width: 35.1%;"></div>
+            </div>
+            <div class="admin-util-footer">
+              <span class="admin-util-subtext" id="adminUtilSubtextLabel">
+                <strong>₱1,418,000</strong> of <strong>₱2,185,000</strong> used · <strong>₱767,000</strong> remaining
+              </span>
+              <div class="admin-util-legend">
+                <span class="admin-util-legend-item"><span class="admin-util-dot spent"></span> Spent Funds</span>
+                <span class="admin-util-legend-item"><span class="admin-util-dot remaining"></span> Remaining Balance</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sectoral / Category Breakdown Summary Cards (with Edit buttons) -->
           <div class="budget-sectors-grid" id="budgetSectorsGrid">
-            <div class="budget-sector-card warning-accent" id="secCardInfra" data-sector="Infrastructure" title="Click to filter by Infrastructure">
+            <div class="budget-sector-card warning-accent" id="secCardInfra" data-sector="Infrastructure" title="Click card to filter by Infrastructure">
               <div class="sec-top">
                 <span class="sec-name">Infrastructure Sector</span>
-                <span class="sec-burn-tag danger" id="secBurnInfra">94.4% Spent (Cap Risk)</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag" id="secBurnInfra">62.3% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Infrastructure" title="Edit Infrastructure Allocation &amp; Spending" aria-label="Edit Infrastructure Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="sec-amounts">
-                <span class="sec-spent" id="secSpentInfra">₱425,000</span>
-                <span class="sec-total" id="secTotalInfra">/ ₱450,000 Cap</span>
+                <span class="sec-spent" id="secSpentInfra">₱785,000</span>
+                <span class="sec-total" id="secTotalInfra">/ ₱1,260,000 Cap</span>
               </div>
               <div class="sec-bar">
-                <div class="sec-fill danger" id="secFillInfra" style="width: 94.4%;"></div>
+                <div class="sec-fill normal" id="secFillInfra" style="width: 62.3%;"></div>
               </div>
               <span class="sec-note">Road rehabilitation, streetlights, drainage &amp; flood mitigation.</span>
             </div>
 
-            <div class="budget-sector-card" id="secCardHealth" data-sector="Health" title="Click to filter by Health">
+            <div class="budget-sector-card" id="secCardHealth" data-sector="Health" title="Click card to filter by Health">
               <div class="sec-top">
                 <span class="sec-name">Health &amp; Sanitation</span>
-                <span class="sec-burn-tag" id="secBurnHealth">69.1% Spent</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag" id="secBurnHealth">71.4% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Health" title="Edit Health Allocation &amp; Spending" aria-label="Edit Health Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="sec-amounts">
-                <span class="sec-spent" id="secSpentHealth">₱380,000</span>
-                <span class="sec-total" id="secTotalHealth">/ ₱550,000 Cap</span>
+                <span class="sec-spent" id="secSpentHealth">₱300,000</span>
+                <span class="sec-total" id="secTotalHealth">/ ₱420,000 Cap</span>
               </div>
               <div class="sec-bar">
-                <div class="sec-fill normal" id="secFillHealth" style="width: 69.1%;"></div>
+                <div class="sec-fill normal" id="secFillHealth" style="width: 71.4%;"></div>
               </div>
               <span class="sec-note">Barangay health station, vaccine procurement &amp; sanitation.</span>
             </div>
 
-            <div class="budget-sector-card surplus-accent" id="secCardSocial" data-sector="Social Services" title="Click to filter by Social Services">
+            <div class="budget-sector-card surplus-accent" id="secCardSocial" data-sector="Social Services" title="Click card to filter by Social Services">
               <div class="sec-top">
                 <span class="sec-name">Social Services &amp; SK</span>
-                <span class="sec-burn-tag success" id="secBurnSocial">60.0% (Surplus)</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag success" id="secBurnSocial">59.6% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Social Services" title="Edit Social Services Allocation &amp; Spending" aria-label="Edit Social Services Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="sec-amounts">
-                <span class="sec-spent" id="secSpentSocial">₱312,000</span>
-                <span class="sec-total" id="secTotalSocial">/ ₱520,000 Cap</span>
+                <span class="sec-spent" id="secSpentSocial">₱146,000</span>
+                <span class="sec-total" id="secTotalSocial">/ ₱245,000 Cap</span>
               </div>
               <div class="sec-bar">
-                <div class="sec-fill success" id="secFillSocial" style="width: 60.0%;"></div>
+                <div class="sec-fill normal" id="secFillSocial" style="width: 59.6%;"></div>
               </div>
               <span class="sec-note">Senior and youth social assistance with reserve surplus identified.</span>
             </div>
 
-            <div class="budget-sector-card" id="secCardAdmin" data-sector="Administration" title="Click to filter by Administration">
+            <div class="budget-sector-card" id="secCardAdmin" data-sector="Administration" title="Click card to filter by Administration">
               <div class="sec-top">
                 <span class="sec-name">Administration &amp; Hall Ops</span>
-                <span class="sec-burn-tag" id="secBurnAdmin">45.3% Spent</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag" id="secBurnAdmin">71.9% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Administration" title="Edit Administration Allocation &amp; Spending" aria-label="Edit Administration Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
               </div>
               <div class="sec-amounts">
-                <span class="sec-spent" id="secSpentAdmin">₱301,000</span>
-                <span class="sec-total" id="secTotalAdmin">/ ₱665,000 Cap</span>
+                <span class="sec-spent" id="secSpentAdmin">₱187,000</span>
+                <span class="sec-total" id="secTotalAdmin">/ ₱260,000 Cap</span>
               </div>
               <div class="sec-bar">
-                <div class="sec-fill normal" id="secFillAdmin" style="width: 45.3%;"></div>
+                <div class="sec-fill normal" id="secFillAdmin" style="width: 71.9%;"></div>
               </div>
               <span class="sec-note">Secretariat, ICT digital portal maintenance, and utility allowances.</span>
             </div>
+
+            <div class="budget-sector-card" id="secCardEmergency" data-sector="Emergency Preparedness" title="Click card to filter by Emergency Preparedness">
+              <div class="sec-top">
+                <span class="sec-name">Emergency Preparedness</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag" id="secBurnEmergency">62.2% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Emergency Preparedness" title="Edit Emergency Preparedness Allocation &amp; Spending" aria-label="Edit Emergency Preparedness Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
+              </div>
+              <div class="sec-amounts">
+                <span class="sec-spent" id="secSpentEmergency">₱112,000</span>
+                <span class="sec-total" id="secTotalEmergency">/ ₱180,000 Cap</span>
+              </div>
+              <div class="sec-bar">
+                <div class="sec-fill normal" id="secFillEmergency" style="width: 62.2%;"></div>
+              </div>
+              <span class="sec-note">BDRRMC calamity reserve, rescue equipment &amp; disaster relief supplies.</span>
+            </div>
+
+            <div class="budget-sector-card" id="secCardEduSports" data-sector="Education, Sports &amp; Recreation" title="Click card to filter by Education, Sports &amp; Recreation">
+              <div class="sec-top">
+                <span class="sec-name">Education, Sports &amp; Recreation</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag" id="secBurnEduSports">71.5% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Education, Sports &amp; Recreation" title="Edit Education, Sports &amp; Recreation Allocation &amp; Spending" aria-label="Edit Education, Sports &amp; Recreation Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
+              </div>
+              <div class="sec-amounts">
+                <span class="sec-spent" id="secSpentEduSports">₱118,000</span>
+                <span class="sec-total" id="secTotalEduSports">/ ₱165,000 Cap</span>
+              </div>
+              <div class="sec-bar">
+                <div class="sec-fill normal" id="secFillEduSports" style="width: 71.5%;"></div>
+              </div>
+              <span class="sec-note">Day care learning kits, scholarship grants, sports leagues &amp; recreation.</span>
+            </div>
+
+            <div class="budget-sector-card" id="secCardAgri" data-sector="Agriculture &amp; Livelihood" title="Click card to filter by Agriculture &amp; Livelihood">
+              <div class="sec-top">
+                <span class="sec-name">Agriculture &amp; Livelihood</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag" id="secBurnAgri">62.9% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Agriculture &amp; Livelihood" title="Edit Agriculture &amp; Livelihood Allocation &amp; Spending" aria-label="Edit Agriculture &amp; Livelihood Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
+              </div>
+              <div class="sec-amounts">
+                <span class="sec-spent" id="secSpentAgri">₱88,000</span>
+                <span class="sec-total" id="secTotalAgri">/ ₱140,000 Cap</span>
+              </div>
+              <div class="sec-bar">
+                <div class="sec-fill normal" id="secFillAgri" style="width: 62.9%;"></div>
+              </div>
+              <span class="sec-note">Community urban gardening, skills training &amp; micro-livelihood support.</span>
+            </div>
+
+            <div class="budget-sector-card" id="secCardEnv" data-sector="Environment &amp; Waste Management" title="Click card to filter by Environment &amp; Waste Management">
+              <div class="sec-top">
+                <span class="sec-name">Environment &amp; Waste Management</span>
+                <div class="sec-top-actions">
+                  <span class="sec-burn-tag" id="secBurnEnv">65.6% Spent</span>
+                  <button type="button" class="btn-card-edit-inline" data-sector-edit="Environment &amp; Waste Management" title="Edit Environment &amp; Waste Management Allocation &amp; Spending" aria-label="Edit Environment &amp; Waste Management Budget">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                </div>
+              </div>
+              <div class="sec-amounts">
+                <span class="sec-spent" id="secSpentEnv">₱105,000</span>
+                <span class="sec-total" id="secTotalEnv">/ ₱160,000 Cap</span>
+              </div>
+              <div class="sec-bar">
+                <div class="sec-fill normal" id="secFillEnv" style="width: 65.6%;"></div>
+              </div>
+              <span class="sec-note">Solid waste segregation, MRF operations, tree planting &amp; clean-up drives.</span>
+            </div>
           </div>
 
-          <!-- Budget Chart & Voucher History Grid -->
+          <!-- Public-Synced Bar Graph & Pie Chart Preview + Direct Edit Controls -->
+          <div class="charts-two-col-grid" id="adminBudgetPublicChartsGrid">
+            <div class="admin-card">
+              <div class="card-header card-header-split-actions">
+                <div>
+                  <span class="card-kicker">PUBLIC BAR GRAPH · QUARTERLY COMPARISON</span>
+                  <h3 class="card-title">Budget vs. Actual per Quarter</h3>
+                  <p class="card-subtitle" id="adminQuarterBarSubtitle">Quarterly allocation and actual spending synced with the Public Home Page</p>
+                </div>
+                <button type="button" class="btn-card-edit-inline" data-budget-edit="quarters" title="Edit Quarterly Budget &amp; Bar Graph Data">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <span>Edit Bar Graph Data</span>
+                </button>
+              </div>
+              <div class="chart-canvas-wrap admin-budget-chart-wrap">
+                <canvas id="adminBudgetQuarterBarChart"></canvas>
+              </div>
+            </div>
+
+            <div class="admin-card">
+              <div class="card-header card-header-split-actions">
+                <div>
+                  <span class="card-kicker">PUBLIC PIE CHART · SECTOR DISTRIBUTION</span>
+                  <h3 class="card-title" id="adminCategoryPieTitle">Spending by Category</h3>
+                  <p class="card-subtitle" id="adminCategoryPieSubtitle">Category distribution synced with the Public Home Page</p>
+                </div>
+                <div class="admin-chart-header-controls">
+                  <div class="admin-pie-mode-toggle" id="adminPieChartModeToggle" role="group" aria-label="Admin pie chart metric mode">
+                    <button type="button" class="admin-pie-mode-btn active" data-admin-pie-mode="actual">Actual</button>
+                    <button type="button" class="admin-pie-mode-btn" data-admin-pie-mode="budget">Allocated</button>
+                  </div>
+                  <button type="button" class="btn-card-edit-inline" data-budget-edit="categories" title="Edit Category Allocations &amp; Pie Chart Data">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Edit Pie Chart Data</span>
+                  </button>
+                </div>
+              </div>
+              <div class="chart-canvas-wrap admin-budget-chart-wrap">
+                <canvas id="adminBudgetCategoryPieChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Budget Trajectory & Voucher History Grid -->
           <div class="charts-two-col-grid">
             <div class="admin-card">
               <div class="card-header">
                 <div>
                   <span class="card-kicker">EXPENDITURE TRAJECTORY</span>
                   <h3 class="card-title">Monthly Disbursement Burn Rate vs. Ceiling</h3>
-                  <p class="card-subtitle">Actual monthly voucher releases from January to October 2026</p>
+                  <p class="card-subtitle" id="adminBurnChartSubtitle">Monthly expenditure trajectory derived from active fiscal allocations</p>
                 </div>
               </div>
-              <div class="chart-canvas-wrap" style="height: 280px;">
+              <div class="chart-canvas-wrap admin-budget-chart-wrap">
                 <canvas id="budgetBurnChart"></canvas>
               </div>
             </div>
@@ -987,45 +1204,27 @@
             <div class="admin-card">
               <div class="card-header">
                 <div>
-                  <span class="card-kicker">LEDGER VOUCHERS</span>
-                  <h3 class="card-title">Recent Approved Vouchers (October 2026)</h3>
-                  <p class="card-subtitle">Treasury releases recorded under Sanggunian resolution</p>
+                  <span class="card-kicker">LEDGER DISBURSEMENTS</span>
+                  <h3 class="card-title">Active Disbursed Line Items</h3>
+                  <p class="card-subtitle">Latest treasury expenditures recorded under Sanggunian appropriations</p>
                 </div>
               </div>
-              <div class="table-responsive" style="max-height: 290px;">
+              <div class="table-responsive admin-vouchers-scroll">
                 <table class="admin-data-table compact">
                   <thead>
                     <tr>
-                      <th>Voucher #</th>
+                      <th>Record ID</th>
                       <th>Sector</th>
                       <th>Particulars</th>
-                      <th>Amount</th>
+                      <th>Spent</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody id="adminRecentVouchersTbody">
                     <tr>
-                      <td><code>#V-2026-092</code></td>
-                      <td>Health</td>
-                      <td>Maternal diagnostic test kits for Barangay Health Center</td>
-                      <td><strong>₱18,500</strong></td>
-                    </tr>
-                    <tr>
-                      <td><code>#V-2026-091</code></td>
+                      <td><code>#BGT-2026-001</code></td>
                       <td>Infrastructure</td>
-                      <td>Sitio Santolan Solar LED Streetlight bulb replacements (12 units)</td>
-                      <td><strong>₱34,200</strong></td>
-                    </tr>
-                    <tr>
-                      <td><code>#V-2026-090</code></td>
-                      <td>Social Services</td>
-                      <td>Senior Citizens Wellness Month dietary supplement packages</td>
-                      <td><strong>₱26,000</strong></td>
-                    </tr>
-                    <tr>
-                      <td><code>#V-2026-089</code></td>
-                      <td>Administration</td>
-                      <td>Cloud portal server hosting &amp; biometric ledger license</td>
-                      <td><strong>₱12,500</strong></td>
+                      <td>Drainage Desiltation &amp; Street Repair Sitio Ibaba</td>
+                      <td><strong>₱310,000</strong></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1033,13 +1232,13 @@
             </div>
           </div>
 
-          <!-- Main Financial Data Table Container Card (Quarterly Budget List moved to bottom) -->
+          <!-- Main Financial Data Table Container Card (Quarterly Budget List) -->
           <div class="admin-card budget-table-card" id="adminQuarterlyBudgetListCard">
-            <div class="card-header" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9;">
+            <div class="card-header admin-ledger-card-header">
               <div>
                 <span class="card-kicker">ITEMIZED APPROPRIATIONS &amp; EXPENSES</span>
-                <h3 class="card-title" style="font-size: 16px; font-weight: 700; color: #0b1e36;">Quarterly Budget Allocation &amp; Expense Ledger</h3>
-                <p class="card-subtitle" style="font-size: 12.5px; color: #64748b;">Comprehensive itemized line items across fiscal quarters, approved budgets, disbursed expenses, and utilization rates.</p>
+                <h3 class="card-title">Quarterly Budget Allocation &amp; Expense Ledger</h3>
+                <p class="card-subtitle">Comprehensive itemized line items across fiscal quarters, approved budgets, disbursed expenses, status, and utilization rates.</p>
               </div>
             </div>
             
@@ -1051,7 +1250,7 @@
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" id="adminBudgetSearchInput" class="table-search-input" placeholder="Search by category, description, or year...">
+                <input type="text" id="adminBudgetSearchInput" class="table-search-input" placeholder="Search by category, description, remarks, or year...">
               </div>
 
               <!-- Right side: Dropdown filters -->
@@ -1078,11 +1277,14 @@
                   <label for="adminBudgetCategoryFilter" class="budget-filter-label">Category:</label>
                   <select id="adminBudgetCategoryFilter" class="budget-filter-select">
                     <option value="all">All Categories</option>
-                    <option value="Administration">Administration</option>
-                    <option value="Health">Health</option>
                     <option value="Infrastructure">Infrastructure</option>
+                    <option value="Health">Health</option>
                     <option value="Social Services">Social Services</option>
+                    <option value="Administration">Administration</option>
                     <option value="Emergency Preparedness">Emergency Preparedness</option>
+                    <option value="Education, Sports &amp; Recreation">Education, Sports &amp; Recreation</option>
+                    <option value="Agriculture &amp; Livelihood">Agriculture &amp; Livelihood</option>
+                    <option value="Environment &amp; Waste Management">Environment &amp; Waste Management</option>
                   </select>
                 </div>
                 <button type="button" id="adminBudgetResetBtn" class="budget-reset-btn" title="Reset all filters">Reset</button>
@@ -1094,13 +1296,14 @@
               <table class="admin-data-table budget-table-modern" id="adminBudgetTable">
                 <thead>
                   <tr>
-                    <th style="width: 75px; text-align: left;">Year</th>
-                    <th style="width: 85px; text-align: left;">Quarter</th>
-                    <th style="width: 170px; text-align: left;">Category</th>
-                    <th style="text-align: left;">Description</th>
-                    <th style="width: 125px; text-align: right;">Budget</th>
-                    <th style="width: 125px; text-align: right;">Actual</th>
-                    <th style="width: 90px; text-align: right;">Util.</th>
+                    <th style="width: 72px; text-align: left;">Year</th>
+                    <th style="width: 82px; text-align: left;">Quarter</th>
+                    <th style="width: 165px; text-align: left;">Category</th>
+                    <th style="text-align: left;">Description &amp; Remarks</th>
+                    <th style="width: 120px; text-align: right;">Allocated</th>
+                    <th style="width: 120px; text-align: right;">Spending</th>
+                    <th style="width: 85px; text-align: right;">Util.</th>
+                    <th style="width: 100px; text-align: center;">Status</th>
                     <th style="width: 95px; text-align: center;">Actions</th>
                   </tr>
                 </thead>
@@ -1661,9 +1864,15 @@
               </div>
               <div class="filter-pills-row" id="announcementsFilterGroup">
                 <button type="button" class="filter-pill active" data-category="all">All Notices</button>
+                <button type="button" class="filter-pill" data-category="active">Active</button>
+                <button type="button" class="filter-pill" data-category="archived">Archived</button>
+                <button type="button" class="filter-pill" data-category="unpublished">Unpublished</button>
                 <button type="button" class="filter-pill filter-pill-critical" data-category="Critical">🚨 Critical Priority</button>
                 <button type="button" class="filter-pill" data-category="Emergency">Emergency</button>
                 <button type="button" class="filter-pill" data-category="Health">Health</button>
+                <button type="button" class="filter-pill" data-category="Infrastructure">Infrastructure</button>
+                <button type="button" class="filter-pill" data-category="Event">Event</button>
+                <button type="button" class="filter-pill" data-category="Social Services">Social Services</button>
                 <button type="button" class="filter-pill" data-category="General">General</button>
               </div>
             </div>
@@ -1920,19 +2129,20 @@
     </div>
   </div>
 
-  <!-- MODAL 5: NEW ANNOUNCEMENT BROADCAST MODAL -->
+  <!-- MODAL 5: CREATE & EDIT ANNOUNCEMENT BROADCAST MODAL -->
   <div class="admin-modal-overlay" id="newAnnouncementModal">
-    <div class="admin-modal-box">
+    <div class="admin-modal-box" style="max-width: 660px;">
       <div class="modal-header">
         <div>
-          <span class="modal-kicker">COMMUNICATIONS · BROADCAST ADVISORY</span>
-          <h3 class="modal-title">Create Official Announcement</h3>
-          <span class="modal-sub">Broadcast to Public Portal &amp; Resident Feeds</span>
+          <span class="modal-kicker" id="annModalKicker">COMMUNICATIONS · BROADCAST ADVISORY</span>
+          <h3 class="modal-title" id="annModalTitle">Create Official Announcement</h3>
+          <span class="modal-sub" id="annModalSub">Broadcast to Public Portal &amp; Resident Feeds</span>
         </div>
         <button type="button" class="modal-close-btn" id="btnCloseNewAnnModal">&times;</button>
       </div>
       <div class="modal-body">
-        <form id="newAnnouncementForm" class="modal-form">
+        <form id="newAnnouncementForm" class="modal-form" onsubmit="return false;">
+          <input type="hidden" id="annEditId" value="">
           <div class="form-group">
             <label class="form-label" for="annTitle">Headline / Title <span class="text-danger">*</span></label>
             <input type="text" id="annTitle" class="form-input" placeholder="e.g. Dengue Prevention Cleanup Drive in Sitio Ibaba" required>
@@ -1940,15 +2150,18 @@
           </div>
           <div class="form-grid-2">
             <div class="form-group">
-              <label class="form-label">Category</label>
+              <label class="form-label" for="annCategory">Category</label>
               <select id="annCategory" class="form-select" required>
-                <option value="Health">Health Advisory</option>
-                <option value="Emergency">Disaster &amp; Weather Alert</option>
-                <option value="General">Civic Assembly &amp; Community</option>
+                <option value="Emergency">Emergency</option>
+                <option value="Health">Health</option>
+                <option value="Infrastructure">Infrastructure</option>
+                <option value="Event">Event</option>
+                <option value="Social Services">Social Services</option>
+                <option value="General">General</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Target Audience / Sitio</label>
+              <label class="form-label" for="annAudience">Target Audience / Sitio</label>
               <select id="annAudience" class="form-select" required>
                 <option value="All Residents">All Barangay Pallocan West Residents</option>
                 <option value="Sitio Ibaba">Sitio Ibaba</option>
@@ -1960,6 +2173,24 @@
                 <option value="G.C Berberabe">G.C Berberabe</option>
               </select>
             </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="annDepartment">Issuing Office / Department</label>
+              <input type="text" id="annDepartment" class="form-input" placeholder="e.g. Office of the Punong Barangay">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="annDate">Date Published</label>
+              <input type="date" id="annDate" class="form-input" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="annStatus">Publication Status</label>
+            <select id="annStatus" class="form-select">
+              <option value="Active">Active (Broadcast Live on Public Home Page)</option>
+              <option value="Unpublished">Unpublished / Draft (Hidden from Public View)</option>
+              <option value="Archived">Archived (Stored in Admin Archive Only)</option>
+            </select>
           </div>
           <!-- Critical Priority / Emergency Advisory Toggle Button -->
           <div class="form-group">
@@ -1987,15 +2218,19 @@
             <input type="hidden" id="annIsCritical" value="false">
           </div>
           <div class="form-group">
+            <label class="form-label" for="annSummary">Public Feed Summary / Excerpt <span style="font-weight: 500; color: #64748b; font-size: 11.5px;">(Optional — auto-generated from content if left blank)</span></label>
+            <textarea id="annSummary" class="form-textarea" rows="2" placeholder="Concise overview shown on the public home page card..."></textarea>
+          </div>
+          <div class="form-group">
             <label class="form-label" for="annContent">Announcement Content / Directive Details <span class="text-danger">*</span></label>
-            <textarea id="annContent" class="form-textarea" rows="4" placeholder="Enter complete announcement message..." required></textarea>
+            <textarea id="annContent" class="form-textarea" rows="5" placeholder="Enter complete announcement message..." required></textarea>
             <span class="field-error-text text-danger" id="annContentError"></span>
           </div>
         </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-modal-outline" id="btnCancelNewAnn">Cancel</button>
-        <button type="button" class="btn-modal-primary" id="btnSubmitNewAnn">Publish Announcement</button>
+        <button type="button" class="btn-modal-primary" id="btnSubmitNewAnn">Broadcast Announcement</button>
       </div>
     </div>
   </div>
@@ -2177,9 +2412,9 @@
     </div>
   </div>
 
-  <!-- MODAL: ADD / EDIT BUDGET RECORD -->
+  <!-- MODAL: ADD / EDIT INDIVIDUAL BUDGET RECORD -->
   <div class="admin-modal-overlay" id="adminBudgetModal" role="dialog" aria-modal="true" aria-labelledby="budgetModalTitle">
-    <div class="admin-modal-box" style="max-width: 560px;">
+    <div class="admin-modal-box modal-box-budget-record">
       <div class="modal-header">
         <div>
           <span class="modal-kicker">PUBLIC TREASURY · FISCAL MANAGEMENT</span>
@@ -2209,40 +2444,229 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="budgetInputCategory">Sectoral Category <span class="text-danger">*</span></label>
-            <select id="budgetInputCategory" class="form-select" required>
-              <option value="Administration">Administration</option>
-              <option value="Health">Health</option>
-              <option value="Infrastructure">Infrastructure</option>
-              <option value="Social Services">Social Services</option>
-              <option value="Emergency Preparedness">Emergency Preparedness</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="budgetInputDesc">Description / Line Item Purpose <span class="text-danger">*</span></label>
-            <textarea id="budgetInputDesc" class="form-textarea" rows="3" placeholder="e.g. Drainage Desiltation & Street Repair Sitio Ibaba" required></textarea>
-            <span class="field-error-text text-danger" id="budgetInputDescError"></span>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="budgetInputCategory">Budget Category <span class="text-danger">*</span></label>
+              <select id="budgetInputCategory" class="form-select" required>
+                <option value="Infrastructure">Infrastructure</option>
+                <option value="Health">Health</option>
+                <option value="Social Services">Social Services</option>
+                <option value="Administration">Administration</option>
+                <option value="Emergency Preparedness">Emergency Preparedness</option>
+                <option value="Education, Sports &amp; Recreation">Education, Sports &amp; Recreation</option>
+                <option value="Agriculture &amp; Livelihood">Agriculture &amp; Livelihood</option>
+                <option value="Environment &amp; Waste Management">Environment &amp; Waste Management</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="budgetInputStatus">Record Status</label>
+              <select id="budgetInputStatus" class="form-select">
+                <option value="Active">Active (Published)</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Completed">Completed</option>
+                <option value="Planned">Planned</option>
+                <option value="Inactive">Inactive (Hidden from Public)</option>
+              </select>
+            </div>
           </div>
 
           <div class="form-grid-2">
             <div class="form-group">
-              <label class="form-label" for="budgetInputAmount">Budget Amount (₱) <span class="text-danger">*</span></label>
-              <input type="number" id="budgetInputAmount" class="form-input" placeholder="e.g. 250000" min="0" step="1000" required>
+              <label class="form-label" for="budgetInputAmount">Allocated Budget (₱) <span class="text-danger">*</span></label>
+              <input type="number" id="budgetInputAmount" class="form-input" placeholder="e.g. 250000" min="0" step="any" required>
               <span class="field-error-text text-danger" id="budgetInputAmountError"></span>
             </div>
             <div class="form-group">
-              <label class="form-label" for="budgetInputActual">Actual Spent Amount (₱)</label>
-              <input type="number" id="budgetInputActual" class="form-input" placeholder="0" min="0" step="1000" value="0">
-              <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Default to ₱0 if unspent or ongoing</span>
+              <label class="form-label" for="budgetInputActual">Actual Spending (₱)</label>
+              <input type="number" id="budgetInputActual" class="form-input" placeholder="0" min="0" step="any" value="0">
+              <span class="field-error-text text-danger" id="budgetInputActualError"></span>
             </div>
+          </div>
+
+          <div class="record-calc-preview-strip" id="budgetRecordCalcPreview">
+            <div class="record-calc-item">
+              <span class="record-calc-label">Remaining Budget:</span>
+              <strong id="budgetModalCalcRemaining">₱0</strong>
+            </div>
+            <div class="record-calc-item">
+              <span class="record-calc-label">Utilization Rate:</span>
+              <strong id="budgetModalCalcUtil">0%</strong>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="budgetInputDesc">Budget Description / Line Item Purpose <span class="text-danger">*</span></label>
+            <textarea id="budgetInputDesc" class="form-textarea" rows="2" placeholder="e.g. Drainage Desiltation &amp; Street Repair Sitio Ibaba" required></textarea>
+            <span class="field-error-text text-danger" id="budgetInputDescError"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="budgetInputRemarks">Remarks / Audit Notes</label>
+            <input type="text" id="budgetInputRemarks" class="form-input" placeholder="Optional resolution reference, disbursement note, or remarks">
           </div>
         </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-modal-outline" id="btnCancelBudgetModal">Cancel</button>
-        <button type="button" class="btn-modal-primary" id="btnSaveBudgetRecord" style="background-color: var(--primary-navy); border-color: var(--primary-navy); color: #ffffff;">Save Budget Record</button>
+        <button type="button" class="btn-modal-primary btn-navy-solid" id="btnSaveBudgetRecord">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: COMPREHENSIVE BUDGET SUMMARY, CATEGORY & QUARTERLY GRAPH EDITOR -->
+  <div class="admin-modal-overlay" id="adminBudgetSummaryModal" role="dialog" aria-modal="true" aria-labelledby="budgetSummaryModalTitle">
+    <div class="admin-modal-box modal-box-budget-summary">
+      <div class="modal-header">
+        <div>
+          <span class="modal-kicker">PUBLIC TRANSPARENCY SOURCE OF TRUTH · TREASURY CONSOLE</span>
+          <h3 class="modal-title" id="budgetSummaryModalTitle">Edit Budget Summary &amp; Allocations</h3>
+          <span class="modal-sub" id="budgetSummaryModalSub">Updates automatically synchronize summary cards, utilization bar, bar graph, and pie chart on the Public Home Page.</span>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseBudgetSummaryModal" aria-label="Close modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Top Year Selector & Mode Tabs -->
+        <div class="budget-summary-top-controls">
+          <div class="budget-summary-year-group">
+            <label for="sumEditYear" class="form-label">Fiscal Year</label>
+            <select id="sumEditYear" class="form-select sum-year-select">
+              <option value="2026" selected>FY 2026</option>
+              <option value="2025">FY 2025</option>
+            </select>
+          </div>
+
+          <div class="budget-summary-modal-tabs" role="tablist" aria-label="Budget editor sections">
+            <button type="button" class="sum-tab-btn active" data-sum-tab="overview" role="tab" aria-selected="true">
+              Summary &amp; Utilization
+            </button>
+            <button type="button" class="sum-tab-btn" data-sum-tab="categories" role="tab" aria-selected="false">
+              Categories &amp; Pie Chart
+            </button>
+            <button type="button" class="sum-tab-btn" data-sum-tab="quarters" role="tab" aria-selected="false">
+              Quarters &amp; Bar Graph
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB PANE 1: OVERALL SUMMARY CARDS & BUDGET UTILIZATION -->
+        <div class="sum-tab-pane active" id="sumTabPaneOverview" role="tabpanel">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="sumInputTotalBudget">Total Annual Budget (₱)</label>
+              <input type="number" id="sumInputTotalBudget" class="form-input" min="0" step="any" placeholder="0">
+              <span class="sum-field-hint">Sum of applicable fiscal year allocations</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sumInputTotalSpending">Total Spending (₱)</label>
+              <input type="number" id="sumInputTotalSpending" class="form-input" min="0" step="any" placeholder="0">
+              <span class="sum-field-hint">Sum of actual disbursed expenditures</span>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="sumInputRemainingBudget">Remaining Budget (₱)</label>
+              <input type="number" id="sumInputRemainingBudget" class="form-input" step="any" placeholder="0">
+              <span class="sum-field-hint">Formula: Total Annual Budget − Total Spending</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sumInputUtilRate">Utilization Rate (%)</label>
+              <input type="number" id="sumInputUtilRate" class="form-input" min="0" max="100" step="0.1" placeholder="0">
+              <span class="sum-field-hint">Formula: (Total Spending ÷ Total Annual Budget) × 100</span>
+            </div>
+          </div>
+
+          <!-- Live Budget Utilization Bar Preview -->
+          <div class="summary-calc-preview-card">
+            <div class="summary-calc-preview-top">
+              <span class="summary-calc-preview-title">Budget Utilization Preview (Public Home Page Sync)</span>
+              <span class="admin-util-badge" id="sumPreviewBadge">64.9% spent</span>
+            </div>
+            <div class="admin-util-track">
+              <div class="admin-util-spent" id="sumPreviewSpentBar" style="width: 64.9%;"></div>
+              <div class="admin-util-remaining" id="sumPreviewRemBar" style="width: 35.1%;"></div>
+            </div>
+            <div class="summary-calc-preview-foot" id="sumPreviewText">
+              <strong>₱1,418,000</strong> of <strong>₱2,185,000</strong> used · <strong>₱767,000</strong> remaining
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="sumInputBatchStatus">Record Status (Optional Batch Update)</label>
+              <select id="sumInputBatchStatus" class="form-select">
+                <option value="">Keep Individual Record Statuses</option>
+                <option value="Active">Set All Year Records to Active</option>
+                <option value="Ongoing">Set All Year Records to Ongoing</option>
+                <option value="Completed">Set All Year Records to Completed</option>
+                <option value="Planned">Set All Year Records to Planned</option>
+                <option value="Inactive">Set All Year Records to Inactive (Hide from Public)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sumInputRemarks">Budget Description / Adjustment Remarks</label>
+              <input type="text" id="sumInputRemarks" class="form-input" placeholder="e.g. Q3 supplemental AIP adjustment approved by Sanggunian">
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB PANE 2: INDIVIDUAL BUDGET ALLOCATIONS & SPENDING PER CATEGORY (PIE CHART DATA) -->
+        <div class="sum-tab-pane" id="sumTabPaneCategories" role="tabpanel">
+          <p class="sum-pane-intro">Update allocated budgets, actual spending, status, or remarks per category. Changes automatically recalculate summary totals and refresh the Public Category Pie Chart.</p>
+          <div class="table-responsive">
+            <table class="budget-bulk-edit-table">
+              <thead>
+                <tr>
+                  <th>Budget Category</th>
+                  <th style="width: 150px;">Allocated Budget (₱)</th>
+                  <th style="width: 150px;">Actual Spending (₱)</th>
+                  <th style="width: 125px; text-align: right;">Remaining</th>
+                  <th style="width: 90px; text-align: right;">Util. Rate</th>
+                  <th style="width: 125px;">Status</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="sumCategoriesEditTbody">
+                <!-- Populated dynamically via JS -->
+              </tbody>
+              <tfoot id="sumCategoriesEditTfoot">
+                <!-- Totals populated dynamically via JS -->
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB PANE 3: QUARTERLY BUDGET RECORDS & EXPENDITURES (BAR GRAPH DATA) -->
+        <div class="sum-tab-pane" id="sumTabPaneQuarters" role="tabpanel">
+          <p class="sum-pane-intro">Update quarterly budget allocations and actual expenditures (Q1–Q4). Changes automatically recalculate annual totals and refresh the Public Quarterly Bar Graph.</p>
+          <div class="table-responsive">
+            <table class="budget-bulk-edit-table">
+              <thead>
+                <tr>
+                  <th>Fiscal Quarter</th>
+                  <th style="width: 155px;">Allocated Budget (₱)</th>
+                  <th style="width: 155px;">Actual Spending (₱)</th>
+                  <th style="width: 130px; text-align: right;">Remaining</th>
+                  <th style="width: 95px; text-align: right;">Util. Rate</th>
+                  <th style="width: 125px;">Status</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="sumQuartersEditTbody">
+                <!-- Populated dynamically via JS -->
+              </tbody>
+              <tfoot id="sumQuartersEditTfoot">
+                <!-- Totals populated dynamically via JS -->
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-outline" id="btnCancelBudgetSummaryModal">Cancel</button>
+        <button type="button" class="btn-modal-primary btn-navy-solid" id="btnSaveBudgetSummaryModal">Save Changes</button>
       </div>
     </div>
   </div>

@@ -6532,3 +6532,643 @@ body.print-modal-open {
 .field-error-text.is-visible {
   display: block;
 }
+
+/* ==============================================================
+   ADMIN BUDGET MANAGEMENT & PUBLIC TRANSPARENCY SYNC ENHANCEMENTS
+   ============================================================== */
+#viewBudget .section-top-toolbar {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+#viewBudget .budget-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.budget-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.budget-header-row-primary {
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.budget-header-row-secondary {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+#viewBudget .budget-header-actions .btn-budget-primary,
+#viewBudget .budget-header-actions .btn-budget-export {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  #viewBudget .section-top-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  #viewBudget .budget-header-actions {
+    width: 100%;
+    align-items: flex-end;
+  }
+}
+
+@media (max-width: 560px) {
+  .budget-header-row-secondary {
+    flex-wrap: wrap;
+  }
+}
+
+.metric-card-actions-group,
+.sec-top-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Maximize space inside Budget Summary & 8 Sector Cards; pin FY/status pill & Edit button to the very right side */
+#viewBudget #budgetMetricsBar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+#viewBudget #budgetMetricsBar .proposal-metric-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 16px;
+  min-height: 116px;
+}
+
+#viewBudget #budgetMetricsBar .metric-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+#viewBudget #budgetMetricsBar .metric-card-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 2px;
+  line-height: 1.35;
+}
+
+#viewBudget #budgetMetricsBar .metric-card-actions-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 5px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+#viewBudget #budgetMetricsBar .metric-card-body {
+  width: 100%;
+}
+
+#viewBudget #budgetSectorsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 22px;
+}
+
+#viewBudget #budgetSectorsGrid .budget-sector-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 16px;
+}
+
+#viewBudget #budgetSectorsGrid .sec-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+#viewBudget #budgetSectorsGrid .sec-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 1px;
+  line-height: 1.35;
+}
+
+#viewBudget #budgetSectorsGrid .sec-top-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 5px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1200px) {
+  #viewBudget #budgetMetricsBar,
+  #viewBudget #budgetSectorsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  #viewBudget #budgetMetricsBar,
+  #viewBudget #budgetSectorsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metric-count-navy {
+  color: #0b1e36;
+}
+
+.metric-count-sky {
+  color: #0284c7;
+}
+
+.metric-count-emerald {
+  color: #15803d;
+}
+
+.metric-count-slate {
+  color: #0f172a;
+}
+
+.btn-card-edit-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.btn-card-edit-inline:hover {
+  background-color: #0b1e36;
+  border-color: #0b1e36;
+  color: #ffffff;
+}
+
+/* Admin Budget Utilization Progress Bar Card */
+.admin-budget-util-card {
+  margin-bottom: 20px;
+  padding: 18px 22px;
+}
+
+.admin-util-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-util-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-util-track {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background-color: #e2e8f0;
+  overflow: hidden;
+  display: flex;
+}
+
+.admin-util-spent {
+  height: 100%;
+  background: linear-gradient(90deg, #0d47a1 0%, #2563eb 100%);
+  transition: width 0.35s ease;
+}
+
+.admin-util-remaining {
+  height: 100%;
+  background-color: #cbd5e1;
+  transition: width 0.35s ease;
+}
+
+.admin-util-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+.admin-util-subtext strong {
+  color: #0f172a;
+}
+
+.admin-util-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-util-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.admin-util-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.admin-util-dot.spent {
+  background-color: #1d4ed8;
+}
+
+.admin-util-dot.remaining {
+  background-color: #cbd5e1;
+}
+
+.card-header-split-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-chart-header-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-pie-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.admin-pie-mode-btn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-pie-mode-btn.active {
+  background-color: #ffffff;
+  color: #0b1e36;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.admin-budget-chart-wrap {
+  height: 280px;
+}
+
+.admin-vouchers-scroll {
+  max-height: 290px;
+}
+
+.admin-ledger-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Status Pill in Admin Budget Table */
+.budget-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.budget-status-pill.status-active,
+.budget-status-pill.status-ongoing {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.budget-status-pill.status-completed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.budget-status-pill.status-planned {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.budget-status-pill.status-inactive {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.admin-budget-remarks-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+/* Modal Sizing & Live Calc Preview */
+.modal-box-budget-record {
+  max-width: 600px;
+}
+
+.modal-box-budget-summary {
+  max-width: 960px;
+  width: 95%;
+}
+
+.btn-navy-solid {
+  background-color: var(--primary-navy);
+  border-color: var(--primary-navy);
+  color: #ffffff;
+}
+
+.record-calc-preview-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 12.5px;
+  color: #334155;
+  flex-wrap: wrap;
+}
+
+.record-calc-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.record-calc-item strong {
+  color: #0b1e36;
+  font-weight: 700;
+}
+
+/* Comprehensive Summary / Category / Quarter Modal Controls */
+.budget-summary-top-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.budget-summary-year-group {
+  min-width: 150px;
+}
+
+.sum-year-select {
+  font-weight: 700;
+}
+
+.budget-summary-modal-tabs {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sum-tab-btn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.sum-tab-btn:hover {
+  color: #0b1e36;
+}
+
+.sum-tab-btn.active {
+  background-color: #ffffff;
+  color: #0b1e36;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.sum-tab-pane {
+  display: none;
+}
+
+.sum-tab-pane.active {
+  display: block;
+}
+
+.sum-field-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.summary-calc-preview-card {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 6px 0 18px;
+}
+
+.summary-calc-preview-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.summary-calc-preview-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.summary-calc-preview-foot {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.sum-pane-intro {
+  font-size: 12.5px;
+  color: #475569;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.budget-bulk-edit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.budget-bulk-edit-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.budget-bulk-edit-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #1e293b;
+}
+
+.budget-bulk-edit-table tfoot td {
+  background-color: #f8fafc;
+  border-top: 2px solid #cbd5e1;
+  border-bottom: none;
+  font-weight: 700;
+  color: #0b1e36;
+  padding: 11px 10px;
+}
+
+.bulk-cat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.bulk-cat-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bulk-edit-input {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #0f172a;
+  background-color: #ffffff;
+}
+
+.bulk-edit-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+}
+
+.bulk-row-focused {
+  background-color: #eff6ff;
+}
+
+@media (max-width: 768px) {
+  .budget-summary-top-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .budget-summary-modal-tabs {
+    width: 100%;
+  }
+
+  .sum-tab-btn {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
+

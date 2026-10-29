@@ -421,6 +421,48 @@
   margin-bottom: 18px;
 }
 
+.analytics-header-split {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chart-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.chart-mode-btn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chart-mode-btn:hover {
+  color: #0f172a;
+}
+
+.chart-mode-btn.active {
+  background-color: #ffffff;
+  color: #0d47a1;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
 .analytics-card-title {
   font-size: 16.5px;
   font-weight: 700;
@@ -656,9 +698,67 @@
   background-color: #7c3aed;
 }
 
+.cat-dot-emergency {
+  background-color: #dc2626;
+}
+
+.cat-dot-education {
+  background-color: #0284c7;
+}
+
+.cat-dot-agriculture {
+  background-color: #65a30d;
+}
+
+.cat-dot-environment {
+  background-color: #0d9488;
+}
+
 .records-table td.col-desc {
   color: #1e293b;
   min-width: 240px;
+}
+
+.record-desc-main {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.record-remarks-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.record-status-inline {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background-color: #f1f5f9;
+  color: #475569;
+  vertical-align: middle;
+}
+
+.record-status-inline.status-completed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.record-status-inline.status-ongoing,
+.record-status-inline.status-active {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.record-status-inline.status-planned {
+  background-color: #fef3c7;
+  color: #b45309;
 }
 
 .records-table td.col-budget,

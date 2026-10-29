@@ -1,4 +1,24 @@
 // JavaScript for Brgy360: Navigation, Mobile Menu, Forms & Auth Modal
+import {
+  getPublicActiveAnnouncements,
+  subscribeAnnouncements,
+  escapeAnnouncementHtml
+} from './announcements-store.js';
+import {
+  loadBudgetRecords,
+  getPublicApplicableBudgetRecords,
+  computeBudgetMetrics,
+  formatCurrencyPHP,
+  formatPercentValue,
+  getAvailableFiscalYears,
+  getActiveCategoriesForYear,
+  BUDGET_CATEGORIES,
+  BUDGET_QUARTERS,
+  BUDGET_CATEGORY_COLORS,
+  escapeBudgetHtml,
+  subscribeBudgetRecords
+} from './budget-store.js';
+
 document.addEventListener('DOMContentLoaded', function () {
   // Navigation & Mobile Menu
   const menuToggle = document.getElementById('menuToggle');
@@ -953,7 +973,7 @@ document.addEventListener('DOMContentLoaded', function () {
       localStorage.setItem('brgy360_session', JSON.stringify({
         role: 'admin',
         email: 'admin@brgy360.gov.ph',
-        name: 'Hon. Danilo M. Ramos',
+        name: 'Ma. Victoria M. Marasigan',
         loginTime: new Date().toISOString()
       }));
       window.location.href = 'admin.html#demographics';
@@ -2500,199 +2520,11 @@ if (heroSlides.length > 1) {
   renderServicesGrid();
 
   // ==========================================================
-  // 12. BUDGET & SPENDING TRANSPARENCY DASHBOARD
+  // 12. BUDGET & SPENDING TRANSPARENCY DASHBOARD (LIVE SYNCED)
   // ==========================================================
-  let budgetRecordsData = [
-    // 2026 Fiscal Year Data
-    {
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Infrastructure',
-      description: 'Drainage Desiltation & Street Repair — Sitio Ibaba & Sitio Santolan',
-      budget: 320000,
-      actual: 310000
-    },
-    {
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Health',
-      description: 'Q1 Medical Mission & Senior Vaccine Procurement',
-      budget: 150000,
-      actual: 145000
-    },
-    {
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Administration',
-      description: 'Barangay Hall Office Supplies & IT Equipment',
-      budget: 120000,
-      actual: 115000
-    },
-    {
-      year: '2026',
-      quarter: 'Q1',
-      category: 'Social Services',
-      description: 'First Quarter Youth Leadership & Sports Camp',
-      budget: 95000,
-      actual: 90000
-    },
-    {
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Infrastructure',
-      description: 'Smart Solar Streetlights Installation Phase 1',
-      budget: 380000,
-      actual: 325000
-    },
-    {
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Health',
-      description: 'Child Nutrition & Deworming Outreach Program',
-      budget: 110000,
-      actual: 95000
-    },
-    {
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Administration',
-      description: 'Staff Capacity Training & Semi-Annual Audit',
-      budget: 80000,
-      actual: 72000
-    },
-    {
-      year: '2026',
-      quarter: 'Q2',
-      category: 'Social Services',
-      description: 'Community Day Care Center Educational Materials',
-      budget: 70000,
-      actual: 56000
-    },
-    {
-      year: '2026',
-      quarter: 'Q3',
-      category: 'Infrastructure',
-      description: 'Flood Retaining Wall Reinforcement — Sitio Ibaba',
-      budget: 300000,
-      actual: 150000
-    },
-    {
-      year: '2026',
-      quarter: 'Q3',
-      category: 'Health',
-      description: 'Dengue Prevention & Clean Water Testing Kits',
-      budget: 90000,
-      actual: 60000
-    },
-    {
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Infrastructure',
-      description: 'CCTVs & Operations Center Equipment Setup',
-      budget: 260000,
-      actual: 0
-    },
-    {
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Health',
-      description: 'Year-End First Aid & Disaster Emergency Resupply',
-      budget: 70000,
-      actual: 0
-    },
-    {
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Administration',
-      description: 'Fiscal Year-End Reporting & Accounting System',
-      budget: 60000,
-      actual: 0
-    },
-    {
-      year: '2026',
-      quarter: 'Q4',
-      category: 'Social Services',
-      description: 'PWD & Senior Citizens Year-End Support Package',
-      budget: 80000,
-      actual: 0
-    },
-
-    // 2025 Fiscal Year Data
-    {
-      year: '2025',
-      quarter: 'Q1',
-      category: 'Infrastructure',
-      description: 'Barangay Hall E-Library & Tech Hub Refurbishment',
-      budget: 420000,
-      actual: 420000
-    },
-    {
-      year: '2025',
-      quarter: 'Q1',
-      category: 'Health',
-      description: 'Health Station Modernization & Diagnostic Kits',
-      budget: 290000,
-      actual: 290000
-    },
-    {
-      year: '2025',
-      quarter: 'Q2',
-      category: 'Infrastructure',
-      description: 'Sitio Gitna Central Covered Court Concrete Paving',
-      budget: 350000,
-      actual: 345000
-    },
-    {
-      year: '2025',
-      quarter: 'Q2',
-      category: 'Administration',
-      description: 'Barangay Records Digitization & Computer Terminals',
-      budget: 140000,
-      actual: 138000
-    },
-    {
-      year: '2025',
-      quarter: 'Q3',
-      category: 'Health',
-      description: 'Anti-Dengue Fogging & Clean Water Safety Project',
-      budget: 180000,
-      actual: 175000
-    },
-    {
-      year: '2025',
-      quarter: 'Q3',
-      category: 'Social Services',
-      description: 'Annual Youth Summer Sports Camp & Tournaments',
-      budget: 120000,
-      actual: 118000
-    },
-    {
-      year: '2025',
-      quarter: 'Q4',
-      category: 'Infrastructure',
-      description: 'Sitio Santolan Slope Stabilization & Pathway',
-      budget: 310000,
-      actual: 300000
-    },
-    {
-      year: '2025',
-      quarter: 'Q4',
-      category: 'Social Services',
-      description: 'Senior Citizens & PWD Year-End Livelihood Aid',
-      budget: 170000,
-      actual: 164000
-    }
-  ];
-
-  try {
-    const savedBudget = localStorage.getItem('brgy360_budget_records');
-    if (savedBudget) {
-      const parsed = JSON.parse(savedBudget);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        budgetRecordsData = parsed;
-      }
-    }
-  } catch (e) {}
+  let allStoredBudgetRecords = loadBudgetRecords();
+  let budgetRecordsData = getPublicApplicableBudgetRecords(allStoredBudgetRecords);
+  let publicPieChartMode = 'actual'; // 'actual' | 'budget'
 
   // DOM Elements for Budget Dashboard
   const budgetYearFilter = document.getElementById('budgetYearFilter');
@@ -2702,9 +2534,13 @@ if (heroSlides.length > 1) {
 
   // KPI elements
   const kpiTotalBudget = document.getElementById('kpiTotalBudget');
+  const kpiTotalBudgetSub = document.getElementById('kpiTotalBudgetSub');
   const kpiTotalSpending = document.getElementById('kpiTotalSpending');
+  const kpiTotalSpendingSub = document.getElementById('kpiTotalSpendingSub');
   const kpiRemainingBudget = document.getElementById('kpiRemainingBudget');
+  const kpiRemainingBudgetSub = document.getElementById('kpiRemainingBudgetSub');
   const kpiUtilizationRate = document.getElementById('kpiUtilizationRate');
+  const kpiUtilizationRateSub = document.getElementById('kpiUtilizationRateSub');
 
   // Progress Bar elements
   const utilizationBadge = document.getElementById('utilizationBadge');
@@ -2713,6 +2549,11 @@ if (heroSlides.length > 1) {
   const utilSubtextLabel = document.getElementById('utilSubtextLabel');
   const utilProgressBar = document.getElementById('utilProgressBar');
 
+  // Chart Header & Mode Toggle elements
+  const publicPieChartTitle = document.getElementById('publicPieChartTitle');
+  const publicPieChartSubtitle = document.getElementById('publicPieChartSubtitle');
+  const publicPieChartModeToggle = document.getElementById('publicPieChartModeToggle');
+
   // Table elements
   const btnToggleBudgetRecords = document.getElementById('btnToggleBudgetRecords');
   const budgetRecordsTableContainer = document.getElementById('budgetRecordsTableContainer');
@@ -2720,9 +2561,43 @@ if (heroSlides.length > 1) {
   const budgetTableItemCount = document.getElementById('budgetTableItemCount');
   const toggleRecordsText = document.getElementById('toggleRecordsText');
 
-  // Currency Formatter
-  function formatCurrencyPHP(amount) {
-    return '₱' + Number(amount).toLocaleString('en-PH');
+  function syncPublicBudgetFilterOptions() {
+    if (budgetYearFilter) {
+      const prevYear = budgetYearFilter.value || '2026';
+      const availableYears = getAvailableFiscalYears(allStoredBudgetRecords);
+      budgetYearFilter.innerHTML = availableYears
+        .map(function (yr) {
+          return '<option value="' + escapeBudgetHtml(yr) + '">' + escapeBudgetHtml(yr) + '</option>';
+        })
+        .join('');
+      if (availableYears.includes(prevYear)) {
+        budgetYearFilter.value = prevYear;
+      } else {
+        budgetYearFilter.value = availableYears[0] || '2026';
+      }
+    }
+
+    if (budgetCategoryFilter) {
+      const prevCat = budgetCategoryFilter.value || 'all';
+      const baseCats = [...BUDGET_CATEGORIES];
+      budgetRecordsData.forEach(function (rec) {
+        if (rec.category && !baseCats.includes(rec.category)) {
+          baseCats.push(rec.category);
+        }
+      });
+      budgetCategoryFilter.innerHTML =
+        '<option value="all">All Categories</option>' +
+        baseCats
+          .map(function (cat) {
+            return '<option value="' + escapeBudgetHtml(cat) + '">' + escapeBudgetHtml(cat) + '</option>';
+          })
+          .join('');
+      if (prevCat === 'all' || baseCats.includes(prevCat)) {
+        budgetCategoryFilter.value = prevCat;
+      } else {
+        budgetCategoryFilter.value = 'all';
+      }
+    }
   }
 
   // Chart instances
@@ -2739,11 +2614,11 @@ if (heroSlides.length > 1) {
       quarterBarChart = new Chart(ctx1, {
         type: 'bar',
         data: {
-          labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+          labels: [...BUDGET_QUARTERS],
           datasets: [
             {
               label: 'Budget',
-              data: [685000, 640000, 390000, 470000],
+              data: [0, 0, 0, 0],
               backgroundColor: '#0d47a1',
               borderRadius: 6,
               barPercentage: 0.65,
@@ -2751,7 +2626,7 @@ if (heroSlides.length > 1) {
             },
             {
               label: 'Actual',
-              data: [660000, 548000, 210000, 0],
+              data: [0, 0, 0, 0],
               backgroundColor: '#f59e0b',
               borderRadius: 6,
               barPercentage: 0.65,
@@ -2804,7 +2679,13 @@ if (heroSlides.length > 1) {
                 font: { family: 'Poppins', size: 11 },
                 color: '#64748b',
                 callback: function (value) {
-                  return '₱' + (value / 1000).toLocaleString() + 'k';
+                  const num = Number(value) || 0;
+                  if (num === 0) return '₱0';
+                  if (Math.abs(num) >= 1000000) {
+                    const millions = Math.round((num / 1000000) * 100) / 100;
+                    return '₱' + millions.toLocaleString('en-PH') + 'M';
+                  }
+                  return '₱' + Math.round(num / 1000).toLocaleString('en-PH') + 'k';
                 }
               }
             }
@@ -2813,7 +2694,7 @@ if (heroSlides.length > 1) {
       });
     }
 
-    // 2. Doughnut / Pie Chart (Spending by Category)
+    // 2. Doughnut / Pie Chart (Spending / Allocation by Category)
     const categoryCanvas = document.getElementById('budgetCategoryPieChart');
     if (categoryCanvas) {
       const ctx2 = categoryCanvas.getContext('2d');
@@ -2823,7 +2704,7 @@ if (heroSlides.length > 1) {
           labels: ['Infrastructure', 'Health', 'Administration', 'Social Services'],
           datasets: [
             {
-              data: [785000, 300000, 187000, 146000],
+              data: [0, 0, 0, 0],
               backgroundColor: ['#0d47a1', '#16a34a', '#f59e0b', '#7c3aed'],
               borderWidth: 2,
               borderColor: '#ffffff',
@@ -2856,9 +2737,16 @@ if (heroSlides.length > 1) {
               cornerRadius: 8,
               callbacks: {
                 label: function (context) {
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const pct = total > 0 ? Math.round((context.raw / total) * 100) : 0;
-                  return ' ' + context.label + ': ' + formatCurrencyPHP(context.raw) + ' (' + pct + '%)';
+                  if (context.label === 'No Active Budget Data') {
+                    return ' ₱0 (0%)';
+                  }
+                  const datasetValues = context.dataset.data || [];
+                  const total = datasetValues.reduce(function (a, b) {
+                    return a + (Number(b) || 0);
+                  }, 0);
+                  const rawVal = Number(context.raw) || 0;
+                  const pct = total > 0 ? formatPercentValue((rawVal / total) * 100) : '0%';
+                  return ' ' + context.label + ': ' + formatCurrencyPHP(rawVal) + ' (' + pct + ')';
                 }
               }
             }
@@ -2868,7 +2756,7 @@ if (heroSlides.length > 1) {
     }
   }
 
-  // Update Dashboard and Charts based on current filters
+  // Update Dashboard, Progress Bar, Charts, and Table from latest saved records
   function updateBudgetDashboard() {
     const selectedYear = budgetYearFilter ? budgetYearFilter.value : '2026';
     const selectedQuarter = budgetQuarterFilter ? budgetQuarterFilter.value : 'all';
@@ -2876,45 +2764,79 @@ if (heroSlides.length > 1) {
 
     // Show or hide Reset Filters button
     if (budgetResetFiltersBtn) {
-      const isFiltered = (selectedYear !== '2026' || selectedQuarter !== 'all' || selectedCategory !== 'all');
+      const isFiltered =
+        selectedYear !== '2026' || selectedQuarter !== 'all' || selectedCategory !== 'all';
       budgetResetFiltersBtn.style.display = isFiltered ? 'inline-flex' : 'none';
     }
 
-    // Filter line items
+    // Filter applicable public budget line items
     const filteredRecords = budgetRecordsData.filter(function (item) {
-      const matchesYear = (item.year === selectedYear);
-      const matchesQuarter = (selectedQuarter === 'all' || item.quarter === selectedQuarter);
-      const matchesCategory = (selectedCategory === 'all' || item.category === selectedCategory);
+      const matchesYear = String(item.year) === String(selectedYear);
+      const matchesQuarter = selectedQuarter === 'all' || item.quarter === selectedQuarter;
+      const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
       return matchesYear && matchesQuarter && matchesCategory;
     });
 
-    // Calculate aggregated metrics
-    const totalBudget = filteredRecords.reduce(function (sum, item) { return sum + item.budget; }, 0);
-    const totalSpending = filteredRecords.reduce(function (sum, item) { return sum + item.actual; }, 0);
-    const remainingBudget = Math.max(0, totalBudget - totalSpending);
-    const utilizationRate = totalBudget > 0 ? Math.round((totalSpending / totalBudget) * 100) : 0;
+    // Calculate metrics using canonical formulas:
+    // Remaining Budget = Total Annual Budget - Total Spending
+    // Utilization Rate = (Total Spending / Total Annual Budget) * 100
+    const metrics = computeBudgetMetrics(filteredRecords);
 
     // Update KPI Metric Values
-    if (kpiTotalBudget) kpiTotalBudget.textContent = formatCurrencyPHP(totalBudget);
-    if (kpiTotalSpending) kpiTotalSpending.textContent = formatCurrencyPHP(totalSpending);
-    if (kpiRemainingBudget) kpiRemainingBudget.textContent = formatCurrencyPHP(remainingBudget);
-    if (kpiUtilizationRate) kpiUtilizationRate.textContent = utilizationRate + '%';
+    if (kpiTotalBudget) kpiTotalBudget.textContent = formatCurrencyPHP(metrics.totalBudget);
+    if (kpiTotalSpending) kpiTotalSpending.textContent = formatCurrencyPHP(metrics.totalSpending);
+    if (kpiRemainingBudget) kpiRemainingBudget.textContent = formatCurrencyPHP(metrics.remainingBudget);
+    if (kpiUtilizationRate) kpiUtilizationRate.textContent = metrics.utilizationText;
 
-    // Update Progress Bar
+    // Update contextual KPI captions
+    if (kpiTotalBudgetSub) {
+      if (selectedQuarter === 'all' && selectedCategory === 'all') {
+        kpiTotalBudgetSub.textContent = 'Appropriated across FY ' + selectedYear + ' quarters';
+      } else {
+        const parts = ['FY ' + selectedYear];
+        if (selectedQuarter !== 'all') parts.push(selectedQuarter);
+        if (selectedCategory !== 'all') parts.push(selectedCategory);
+        kpiTotalBudgetSub.textContent = 'Allocated for ' + parts.join(' · ');
+      }
+    }
+    if (kpiTotalSpendingSub) {
+      kpiTotalSpendingSub.textContent = 'Actual disbursed expenditures';
+    }
+    if (kpiRemainingBudgetSub) {
+      kpiRemainingBudgetSub.textContent =
+        metrics.remainingBudget < 0
+          ? 'Spending exceeds current allocation'
+          : 'Available uncommitted balance';
+    }
+    if (kpiUtilizationRateSub) {
+      kpiUtilizationRateSub.textContent =
+        metrics.totalBudget === 0
+          ? 'No allocated budget for selection'
+          : 'Fiscal disbursement velocity';
+    }
+
+    // Update Overall Budget Utilization Progress Bar (matches summary cards 100%)
     if (utilizationBadge) {
-      utilizationBadge.textContent = utilizationRate + '% spent';
+      utilizationBadge.textContent = metrics.utilizationText + ' spent';
     }
     if (utilSpentBar) {
-      utilSpentBar.style.width = Math.min(utilizationRate, 100) + '%';
+      utilSpentBar.style.width = metrics.spentBarPct + '%';
     }
     if (utilRemainingBar) {
-      utilRemainingBar.style.width = Math.max(0, 100 - utilizationRate) + '%';
+      utilRemainingBar.style.width = metrics.remainingBarPct + '%';
     }
     if (utilProgressBar) {
-      utilProgressBar.setAttribute('aria-valuenow', utilizationRate);
+      utilProgressBar.setAttribute('aria-valuenow', String(Math.round(metrics.utilizationRate)));
     }
     if (utilSubtextLabel) {
-      utilSubtextLabel.innerHTML = '<strong>' + formatCurrencyPHP(totalSpending) + '</strong> of <strong>' + formatCurrencyPHP(totalBudget) + '</strong> used · <strong>' + formatCurrencyPHP(remainingBudget) + '</strong> remaining';
+      utilSubtextLabel.innerHTML =
+        '<strong>' +
+        formatCurrencyPHP(metrics.totalSpending) +
+        '</strong> of <strong>' +
+        formatCurrencyPHP(metrics.totalBudget) +
+        '</strong> used · <strong>' +
+        formatCurrencyPHP(metrics.remainingBudget) +
+        '</strong> remaining';
     }
 
     // Update Records Table
@@ -2922,25 +2844,29 @@ if (heroSlides.length > 1) {
 
     // Update Chart 1: Bar Chart (Budget vs Actual per Quarter)
     if (quarterBarChart) {
-      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
-      const activeQuarters = (selectedQuarter === 'all') ? quarters : [selectedQuarter];
+      const activeQuarters =
+        selectedQuarter === 'all' ? [...BUDGET_QUARTERS] : [selectedQuarter];
 
       const budgetPerQ = activeQuarters.map(function (q) {
         return budgetRecordsData
           .filter(function (it) {
-            const matchCat = (selectedCategory === 'all' || it.category === selectedCategory);
-            return it.year === selectedYear && it.quarter === q && matchCat;
+            const matchCat = selectedCategory === 'all' || it.category === selectedCategory;
+            return String(it.year) === String(selectedYear) && it.quarter === q && matchCat;
           })
-          .reduce(function (sum, it) { return sum + it.budget; }, 0);
+          .reduce(function (sum, it) {
+            return sum + (Number(it.budget) || 0);
+          }, 0);
       });
 
       const actualPerQ = activeQuarters.map(function (q) {
         return budgetRecordsData
           .filter(function (it) {
-            const matchCat = (selectedCategory === 'all' || it.category === selectedCategory);
-            return it.year === selectedYear && it.quarter === q && matchCat;
+            const matchCat = selectedCategory === 'all' || it.category === selectedCategory;
+            return String(it.year) === String(selectedYear) && it.quarter === q && matchCat;
           })
-          .reduce(function (sum, it) { return sum + it.actual; }, 0);
+          .reduce(function (sum, it) {
+            return sum + (Number(it.actual) || 0);
+          }, 0);
       });
 
       quarterBarChart.data.labels = activeQuarters;
@@ -2949,31 +2875,75 @@ if (heroSlides.length > 1) {
       quarterBarChart.update();
     }
 
-    // Update Chart 2: Doughnut / Pie Chart (Spending by Category)
+    // Update Chart 2: Doughnut / Pie Chart (Category Breakdown)
     if (categoryPieChart) {
-      const categories = ['Infrastructure', 'Health', 'Administration', 'Social Services'];
-      const activeCategories = (selectedCategory === 'all') ? categories : [selectedCategory];
-      const categoryColors = {
-        'Infrastructure': '#0d47a1',
-        'Health': '#16a34a',
-        'Administration': '#f59e0b',
-        'Social Services': '#7c3aed'
-      };
+      const yearCategories = getActiveCategoriesForYear(budgetRecordsData, selectedYear);
+      const activeCategories =
+        selectedCategory === 'all' ? yearCategories : [selectedCategory];
 
-      const spendingPerCat = activeCategories.map(function (cat) {
+      const actualPerCat = activeCategories.map(function (cat) {
         return budgetRecordsData
           .filter(function (it) {
-            const matchQ = (selectedQuarter === 'all' || it.quarter === selectedQuarter);
-            return it.year === selectedYear && it.category === cat && matchQ;
+            const matchQ = selectedQuarter === 'all' || it.quarter === selectedQuarter;
+            return String(it.year) === String(selectedYear) && it.category === cat && matchQ;
           })
-          .reduce(function (sum, it) { return sum + it.actual; }, 0);
+          .reduce(function (sum, it) {
+            return sum + (Number(it.actual) || 0);
+          }, 0);
       });
 
-      categoryPieChart.data.labels = activeCategories;
-      categoryPieChart.data.datasets[0].data = spendingPerCat;
-      categoryPieChart.data.datasets[0].backgroundColor = activeCategories.map(function (c) {
-        return categoryColors[c] || '#64748b';
+      const budgetPerCat = activeCategories.map(function (cat) {
+        return budgetRecordsData
+          .filter(function (it) {
+            const matchQ = selectedQuarter === 'all' || it.quarter === selectedQuarter;
+            return String(it.year) === String(selectedYear) && it.category === cat && matchQ;
+          })
+          .reduce(function (sum, it) {
+            return sum + (Number(it.budget) || 0);
+          }, 0);
       });
+
+      const sumActual = actualPerCat.reduce(function (a, b) { return a + b; }, 0);
+      const sumBudget = budgetPerCat.reduce(function (a, b) { return a + b; }, 0);
+
+      let effectiveMode = publicPieChartMode;
+      let fallbackToAllocated = false;
+      if (effectiveMode === 'actual' && sumActual === 0 && sumBudget > 0) {
+        effectiveMode = 'budget';
+        fallbackToAllocated = true;
+      }
+
+      if (publicPieChartTitle) {
+        publicPieChartTitle.textContent =
+          effectiveMode === 'budget' ? 'Allocated Budget by Category' : 'Spending by Category';
+      }
+      if (publicPieChartSubtitle) {
+        if (sumActual === 0 && sumBudget === 0) {
+          publicPieChartSubtitle.textContent = 'No budget allocations recorded for current filter';
+        } else if (fallbackToAllocated) {
+          publicPieChartSubtitle.textContent =
+            'No disbursements recorded yet — showing allocated budget shares';
+        } else if (effectiveMode === 'budget') {
+          publicPieChartSubtitle.textContent =
+            'Approved budget allocation shares across operational sectors';
+        } else {
+          publicPieChartSubtitle.textContent =
+            'Disbursement breakdown across operational sectors';
+        }
+      }
+
+      if (sumActual === 0 && sumBudget === 0) {
+        categoryPieChart.data.labels = ['No Active Budget Data'];
+        categoryPieChart.data.datasets[0].data = [1];
+        categoryPieChart.data.datasets[0].backgroundColor = ['#e2e8f0'];
+      } else {
+        const series = effectiveMode === 'budget' ? budgetPerCat : actualPerCat;
+        categoryPieChart.data.labels = activeCategories;
+        categoryPieChart.data.datasets[0].data = series;
+        categoryPieChart.data.datasets[0].backgroundColor = activeCategories.map(function (c) {
+          return BUDGET_CATEGORY_COLORS[c] || '#64748b';
+        });
+      }
       categoryPieChart.update();
     }
   }
@@ -2983,50 +2953,100 @@ if (heroSlides.length > 1) {
     if (!budgetRecordsTbody) return;
 
     if (budgetTableItemCount) {
-      budgetTableItemCount.textContent = 'Showing ' + records.length + (records.length === 1 ? ' line item' : ' allocation line items');
+      budgetTableItemCount.textContent =
+        'Showing ' +
+        records.length +
+        (records.length === 1 ? ' line item' : ' allocation line items');
     }
 
     if (records.length === 0) {
-      budgetRecordsTbody.innerHTML = '<tr><td colspan="6" class="records-empty-state">No budget records found matching the selected filters.</td></tr>';
+      budgetRecordsTbody.innerHTML =
+        '<tr><td colspan="6" class="records-empty-state">No budget records found matching the selected filters.</td></tr>';
       return;
     }
 
-    const rowsHtml = records.map(function (item) {
-      const itemUtil = item.budget > 0 ? Math.round((item.actual / item.budget) * 100) : 0;
+    const quarterOrder = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 };
+    const sortedRecords = [...records].sort(function (a, b) {
+      if (a.year !== b.year) return Number(b.year) - Number(a.year);
+      return (quarterOrder[a.quarter] || 9) - (quarterOrder[b.quarter] || 9);
+    });
 
-      // Status Color Coding for Utilization Column:
-      // High (90%+): Pink/Red text
-      // Moderate (50%-89%): Orange/Gold text
-      // Unspent/Low (0%-49%): Green or Gray text
-      let utilClass = 'util-text-unspent';
-      if (itemUtil >= 90) {
-        utilClass = 'util-text-high';
-      } else if (itemUtil >= 50) {
-        utilClass = 'util-text-moderate';
-      } else if (itemUtil > 0) {
-        utilClass = 'util-text-low';
-      }
+    const rowsHtml = sortedRecords
+      .map(function (item) {
+        const budgetVal = Number(item.budget) || 0;
+        const actualVal = Number(item.actual) || 0;
+        const itemUtilRaw = budgetVal > 0 ? (actualVal / budgetVal) * 100 : 0;
+        const itemUtilText = formatPercentValue(itemUtilRaw);
 
-      // Category colored dot
-      let catDotClass = 'cat-dot-infrastructure';
-      if (item.category === 'Health') catDotClass = 'cat-dot-health';
-      else if (item.category === 'Administration') catDotClass = 'cat-dot-administration';
-      else if (item.category === 'Social Services') catDotClass = 'cat-dot-social';
+        let utilClass = 'util-text-unspent';
+        if (itemUtilRaw >= 90) {
+          utilClass = 'util-text-high';
+        } else if (itemUtilRaw >= 50) {
+          utilClass = 'util-text-moderate';
+        } else if (itemUtilRaw > 0) {
+          utilClass = 'util-text-low';
+        }
 
-      return '<tr>' +
-        '<td class="col-quarter">' + item.quarter + ' ' + item.year + '</td>' +
-        '<td class="col-category">' +
+        let catDotClass = 'cat-dot-infrastructure';
+        if (item.category === 'Health') catDotClass = 'cat-dot-health';
+        else if (item.category === 'Administration') catDotClass = 'cat-dot-administration';
+        else if (item.category === 'Social Services') catDotClass = 'cat-dot-social';
+        else if (item.category === 'Emergency Preparedness') catDotClass = 'cat-dot-emergency';
+        else if (item.category === 'Education, Sports & Recreation') catDotClass = 'cat-dot-education';
+        else if (item.category === 'Agriculture & Livelihood') catDotClass = 'cat-dot-agriculture';
+        else if (item.category === 'Environment & Waste Management') catDotClass = 'cat-dot-environment';
+
+        const statusRaw = String(item.status || 'Active');
+        const statusSlug = statusRaw.toLowerCase();
+        const statusBadgeHtml =
+          statusRaw && statusSlug !== 'active'
+            ? '<span class="record-status-inline status-' +
+              escapeBudgetHtml(statusSlug) +
+              '">' +
+              escapeBudgetHtml(statusRaw) +
+              '</span>'
+            : '';
+
+        const remarksHtml = item.remarks
+          ? '<span class="record-remarks-sub">' + escapeBudgetHtml(item.remarks) + '</span>'
+          : '';
+
+        return (
+          '<tr>' +
+          '<td class="col-quarter">' +
+          escapeBudgetHtml(item.quarter) +
+          ' ' +
+          escapeBudgetHtml(item.year) +
+          '</td>' +
+          '<td class="col-category">' +
           '<span class="category-tag">' +
-            '<span class="category-dot ' + catDotClass + '"></span>' +
-            item.category +
+          '<span class="category-dot ' +
+          catDotClass +
+          '"></span>' +
+          escapeBudgetHtml(item.category) +
           '</span>' +
-        '</td>' +
-        '<td class="col-desc">' + item.description + '</td>' +
-        '<td class="col-budget">' + formatCurrencyPHP(item.budget) + '</td>' +
-        '<td class="col-actual">' + formatCurrencyPHP(item.actual) + '</td>' +
-        '<td class="col-utilization"><span class="' + utilClass + '">' + itemUtil + '%</span></td>' +
-      '</tr>';
-    }).join('');
+          '</td>' +
+          '<td class="col-desc"><span class="record-desc-main">' +
+          escapeBudgetHtml(item.description) +
+          '</span>' +
+          statusBadgeHtml +
+          remarksHtml +
+          '</td>' +
+          '<td class="col-budget">' +
+          formatCurrencyPHP(budgetVal) +
+          '</td>' +
+          '<td class="col-actual">' +
+          formatCurrencyPHP(actualVal) +
+          '</td>' +
+          '<td class="col-utilization"><span class="' +
+          utilClass +
+          '">' +
+          itemUtilText +
+          '</span></td>' +
+          '</tr>'
+        );
+      })
+      .join('');
 
     budgetRecordsTbody.innerHTML = rowsHtml;
   }
@@ -3034,7 +3054,9 @@ if (heroSlides.length > 1) {
   // Toggle Table Visibility
   if (btnToggleBudgetRecords && budgetRecordsTableContainer) {
     btnToggleBudgetRecords.addEventListener('click', function () {
-      const isHidden = (budgetRecordsTableContainer.style.display === 'none' || budgetRecordsTableContainer.style.display === '');
+      const isHidden =
+        budgetRecordsTableContainer.style.display === 'none' ||
+        budgetRecordsTableContainer.style.display === '';
       if (isHidden) {
         budgetRecordsTableContainer.style.display = 'block';
         btnToggleBudgetRecords.classList.add('is-open');
@@ -3047,6 +3069,20 @@ if (heroSlides.length > 1) {
         btnToggleBudgetRecords.setAttribute('aria-expanded', 'false');
         if (toggleRecordsText) toggleRecordsText.textContent = 'View Budget Allocation Records';
       }
+    });
+  }
+
+  // Pie Chart Mode Toggle (Actual Spending vs Allocated Budget)
+  if (publicPieChartModeToggle) {
+    publicPieChartModeToggle.querySelectorAll('.chart-mode-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const mode = btn.getAttribute('data-pie-mode') || 'actual';
+        publicPieChartMode = mode;
+        publicPieChartModeToggle.querySelectorAll('.chart-mode-btn').forEach(function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+        updateBudgetDashboard();
+      });
     });
   }
 
@@ -3064,170 +3100,33 @@ if (heroSlides.length > 1) {
   // Reset Filters Listener
   if (budgetResetFiltersBtn) {
     budgetResetFiltersBtn.addEventListener('click', function () {
-      if (budgetYearFilter) budgetYearFilter.value = '2026';
+      if (budgetYearFilter) {
+        const years = getAvailableFiscalYears(allStoredBudgetRecords);
+        budgetYearFilter.value = years.includes('2026') ? '2026' : (years[0] || '2026');
+      }
       if (budgetQuarterFilter) budgetQuarterFilter.value = 'all';
       if (budgetCategoryFilter) budgetCategoryFilter.value = 'all';
       updateBudgetDashboard();
     });
   }
 
-  // Initialize Budget Module
+  // Initialize Public Budget Module & Subscribe to Live Admin Updates
+  syncPublicBudgetFilterOptions();
   initBudgetCharts();
   updateBudgetDashboard();
 
+  subscribeBudgetRecords(function (latestRecords) {
+    allStoredBudgetRecords = Array.isArray(latestRecords) ? latestRecords : loadBudgetRecords();
+    budgetRecordsData = getPublicApplicableBudgetRecords(allStoredBudgetRecords);
+    syncPublicBudgetFilterOptions();
+    updateBudgetDashboard();
+  });
+
   // ==========================================================
-  // 13. ANNOUNCEMENTS: CLEAN VERTICAL STACKED CARDS & FILTER
+  // 13. ANNOUNCEMENTS: CLEAN VERTICAL STACKED CARDS & LIVE SYNC
   // ==========================================================
-  const announcements = [
-    {
-      id: 1,
-      title: "Typhoon Preparedness Advisory",
-      category: "Emergency",
-      isEmergency: true,
-      date: "2026-09-26",
-      department: "Barangay Disaster Risk Reduction & Management Council (BDRRMC)",
-      summary: "Residents in riverside sitios and flood-prone lowlands are advised to prepare emergency go-bags, secure roofing, and heed mandatory flood protocols. The announcement will be held on September 26, 2026, with preemptive evacuation starting promptly at 1:00 PM before typhoon landfall. Free barangay emergency shuttles are staged at Sitio Ibaba and Sitio Santolan Chapels to transport families to the Multi-Purpose Covered Court 24/7 evacuation center.",
-      content: `
-        <p><strong>SITUATION & STORM WARNING:</strong> The Philippine Atmospheric, Geophysical and Astronomical Services Administration (PAGASA) has raised Wind Signal No. 3 over our province due to Severe Tropical Storm 'Julian'. Critical riverbank telemetry sensors in Sitio Ibaba and Sitio Santolan have reached orange alert level. Torrential rainfall, high-velocity gale winds, and river overflows are anticipated within the next 18 to 24 hours.</p>
-        <p><strong>MANDATORY EVACUATION SCHEDULE:</strong> The announcement will be held on September 26, 2026, with mandatory preemptive evacuation commencing at 1:00 PM and continuing until 5:00 PM for all residents living within 50 meters of the riverbank, low-lying waterways, and landslide-vulnerable hillsides. The Barangay Multi-Purpose Covered Court on Central Grounds serves as the primary designated 24/7 evacuation center with standby food packs, potable water stations, and medical officers.</p>
-        <p><strong>CRITICAL HOUSEHOLD ACTION PROTOCOLS:</strong></p>
-        <ul>
-          <li><strong>Emergency Go-Bags:</strong> Prepare waterproof bags containing non-perishable canned food, 3-day bottled water supply, first-aid kits, essential prescription medicines, flashlights, power banks, battery-powered radios, and government IDs sealed in ziplock pouches.</li>
-          <li><strong>Utility Precautions:</strong> Switch off the main electrical breaker and securely disconnect LPG gas regulator hoses before locking and vacating homes.</li>
-          <li><strong>Free Emergency Transportation:</strong> Barangay emergency rescue trucks and transport shuttles will make continuous pickup loops at Sitio Ibaba and Sitio Santolan Chapels starting at 1:00 PM.</li>
-          <li><strong>Livestock & Pets:</strong> Domestic animals must not be left tied or locked indoors; safe temporary holding corrals are set up behind the evacuation center.</li>
-        </ul>
-        <p><strong>24/7 COMMAND DISPATCH HOTLINES:</strong></p>
-        <p>📞 BDRRMC Operations: <strong>0917-512-8843</strong> | 🚨 Tanod Emergency Rescue: <strong>0936-221-8847</strong> | 🏥 Health Station Medic: <strong>0920-445-9128</strong></p>
-      `,
-      attachment: {
-        name: "Official_Typhoon_Preparedness_Advisory_2026.pdf",
-        size: "1.4 MB"
-      }
-    },
-    {
-      id: 2,
-      title: "Free Community Medical Mission & Flu Vaccination Drive",
-      category: "Health",
-      isEmergency: false,
-      date: "2026-10-05",
-      department: "Barangay Health Station & City Health Office",
-      summary: "The Barangay Health Committee, in coordination with the City Health Office and volunteer physicians, is providing free comprehensive medical checkups, essential medicines, and pediatric vitamins. The announcement will be held on October 22, 2026 (Thursday, 8:00 AM – 4:00 PM) at the Sitio Ilaya Main Health Station. Free annual influenza vaccinations will also be administered for senior citizens, persons with disabilities, and young children.",
-      content: `
-        <p>The Barangay Health Station, in partnership with visiting volunteer doctors from the City Health Office and Philippine Medical Association, will hold its annual Community Health and Preventive Wellness Outreach for all registered barangay families.</p>
-        <p><strong>OUTREACH DATE & VENUE:</strong> The announcement will be held on October 22, 2026 (Thursday, 8:00 AM – 4:00 PM) at the Sitio Ilaya Main Health Station. Numbered priority queue numbers will be released starting at 7:30 AM at the triage admission desk. Express lanes will be maintained for senior citizens, pregnant women, and persons with disabilities.</p>
-        <p><strong>FREE HEALTHCARE SERVICES AVAILABLE:</strong></p>
-        <ul>
-          <li><strong>General Consultations:</strong> Adult internal medicine and pediatric consultations conducted by licensed physicians.</li>
-          <li><strong>Annual Influenza (Flu) Vaccinations:</strong> Priority shots provided for senior citizens aged 60 and above, PWDs, and children aged 6 months to 5 years.</li>
-          <li><strong>Diagnostic Screening:</strong> Free blood pressure monitoring, random blood sugar (RBS) fingerstick screening, and uric acid checks.</li>
-          <li><strong>Free Pharmacy Dispensation:</strong> Full-course doctor-prescribed maintenance medicines (for hypertension and diabetes), antibiotics, and pediatric vitamin syrups.</li>
-        </ul>
-        <p><strong>REMINDERS FOR ATTENDEES:</strong> Please present your valid government ID, Barangay Resident Card, and Barangay Health Record Booklet (if issued previously). Fasting is recommended for patients requesting blood sugar diagnostic tests.</p>
-      `,
-      attachment: {
-        name: "Medical_Mission_Guidelines_Oct2026.pdf",
-        size: "1.1 MB"
-      }
-    },
-    {
-      id: 3,
-      title: "Sitio Gitna Water Main Pipeline Rehabilitation & Road Re-blocking",
-      category: "Infrastructure",
-      isEmergency: false,
-      date: "2026-10-12",
-      department: "Barangay Engineering & Public Works Committee",
-      summary: "Extensive civil engineering rehabilitation, culinary pipeline upgrade, and concrete asphalt re-blocking will be executed along Mabini Extension to resolve chronic low water pressure and roadway surface wear. The announcement will be held on October 13 to October 17, 2026 (Daily 8:00 AM – 5:00 PM). One-lane traffic flow will be enforced by barangay tanods, and two dedicated potable water tankers will be stationed at Sitio Gitna Chapel for affected households.",
-      content: `
-        <p>In collaborative partnership with the Municipal Water District and the City Engineering Department, major infrastructure renewal will be undertaken along Mabini Extension (spanning from corner Rizal Street to corner Luna Avenue) to replace aging galvanized water mains with high-density polyethylene pipelines and repair road pavement.</p>
-        <p><strong>CONSTRUCTION SCHEDULE & WORKING HOURS:</strong> The announcement will be held on October 13 to October 17, 2026 (Daily 8:00 AM – 5:00 PM). Heavy equipment mobilization will occur between 7:00 AM and 8:00 AM daily, with excavation and trench re-blocking concluded before evening rush hours.</p>
-        <p><strong>TRAFFIC SCHEME & WATER SUPPLY CONTINGENCY:</strong></p>
-        <ul>
-          <li><strong>One-Lane Alternate Traffic:</strong> Barangay Tanod traffic marshals will oversee stop-and-go passage along Mabini Extension. Motorists are advised to utilize secondary access routes via Bonifacio Road.</li>
-          <li><strong>Potable Water Tanker Relief:</strong> During scheduled water pressure drop periods (10:00 AM to 3:00 PM daily), two 10,000-liter barangay potable water tankers will be stationed at the Sitio Gitna Chapel courtyard to supply clean household water free of charge.</li>
-          <li><strong>Domestic Storage:</strong> Residents in Sitio Gitna are advised to store adequate clean drinking and cooking water in covered storage containers prior to 8:00 AM each morning.</li>
-        </ul>
-        <p>For urgent traffic inquiries or emergency water delivery requests, please contact the Barangay Engineering Desk at <strong>0919-482-1130</strong>.</p>
-      `,
-      attachment: {
-        name: "Infrastructure_Advisory_SitioGitna.pdf",
-        size: "750 KB"
-      }
-    },
-    {
-      id: 4,
-      title: "2nd Semester Barangay General Assembly & Town Hall Forum",
-      category: "Event",
-      isEmergency: false,
-      date: "2026-10-20",
-      department: "Office of the Punong Barangay",
-      summary: "Pursuant to Section 397 of the Local Government Code, all barangay residents aged 15 and above are invited to convene for the semi-annual civic assembly. The announcement will be held on October 25, 2026 (Sunday, 8:30 AM – 12:00 PM) at the Barangay Multi-Purpose Covered Court. The assembly features the State of the Barangay Address, 2026 budget utilization disclosures, project turn-overs, and an open citizen town hall.",
-      content: `
-        <p>Pursuant to Republic Act No. 7160 (The Local Government Code of 1991), the Sangguniang Barangay formally invites all registered residents, youth leaders, and civil society organizations to participate in the 2nd Semester Barangay General Assembly.</p>
-        <p><strong>ASSEMBLY SCHEDULE & LOCATION:</strong> The announcement will be held on October 25, 2026 (Sunday, 8:30 AM – 12:00 PM) at the Barangay Multi-Purpose Covered Court on Central Grounds. Resident registration and voter profiling verification begin at 8:00 AM sharp, accompanied by complimentary civic snacks and refreshments.</p>
-        <p><strong>OFFICIAL ASSEMBLY AGENDA:</strong></p>
-        <ul>
-          <li><strong>State of the Barangay Address (SOBA):</strong> Punong Barangay Romy D. Catilo will deliver the executive report covering executive accomplishments, peace and order indexes, and disaster readiness milestones.</li>
-          <li><strong>Comprehensive Financial Transparency Report:</strong> Barangay Treasurer Mennen M. Bolos will present the itemized financial accountability statement of the 20% Barangay Development Fund, 10% SK Youth Development Fund, and General Administrative expenditures.</li>
-          <li><strong>Project Turn-over & Blessing:</strong> Formal turnover and community handover of completed solar-powered LED streetlights across Sitio Ibaba, Sitio Santolan, Sitio Ilaya, Sitio Gitna, and Tierra Verde and the newly dredged drainage outfall canal.</li>
-          <li><strong>Open Public Forum:</strong> An open floor where any resident can voice neighborhood petitions, public safety suggestions, and community inquiries directly to the barangay council.</li>
-        </ul>
-        <p>Your active voice and presence ensure honest, participatory, and transparent local governance. All attendees will receive verified attendance certificates for barangay profiling records.</p>
-      `,
-      attachment: {
-        name: "Barangay_Assembly_2026_Notice.pdf",
-        size: "820 KB"
-      }
-    },
-    {
-      id: 5,
-      title: "Senior Citizens & PWD Social Pension Distribution (Q4 2026)",
-      category: "Social Services",
-      isEmergency: false,
-      date: "2026-10-28",
-      department: "Barangay Social Welfare & Development (BSWD)",
-      summary: "The Barangay Social Welfare Committee, in coordination with the Department of Social Welfare and Development (DSWD), will release the 4th Quarter social pension stipend and medical assistance subsidy for registered indigent senior citizens and persons with disabilities. The announcement will be held on November 3, 2026 (Tuesday, 8:00 AM – 3:00 PM) at the Barangay Session Hall.",
-      content: `
-        <p>The Barangay Social Welfare and Development Office, alongside regional disbursement officers from the Department of Social Welfare and Development (DSWD), announces the schedule for the 4th Quarter Social Pension and indigent medical assistance payout.</p>
-        <p><strong>PAYOUT SCHEDULE & LOCATION:</strong> The announcement will be held on November 3, 2026 (Tuesday, 8:00 AM – 3:00 PM) at the Barangay Session Hall. Numbered disbursement vouchers will be processed according to designated purok time clusters to ensure short wait times and comfortable seating.</p>
-        <p><strong>MANDATORY CLAIM REQUIREMENTS:</strong></p>
-        <ul>
-          <li><strong>Personal Claimants:</strong> Original OSCA Senior Citizen ID card or National Council on Disability Affairs (NCDA) PWD ID card, plus one (1) photocopy of any valid government ID.</li>
-          <li><strong>Free Indigency Certificate:</strong> Valid Barangay Certificate of Indigency (issued at no cost at the special social services desk).</li>
-          <li><strong>Authorized Representative Claims:</strong> For bedridden, hospitalized, or frail beneficiaries, representatives must present: (1) an authorized Special Power of Attorney (SPA) or Barangay Representative Form; (2) current attending physician's medical certificate; and (3) original and photocopies of both the beneficiary's and representative's valid IDs.</li>
-        </ul>
-        <p>Air-conditioned rest areas, wheelchair ramps, priority seating, and standby medical blood pressure monitoring will be fully manned by volunteer Barangay Health Workers throughout the payout.</p>
-      `,
-      attachment: {
-        name: "Pension_Payout_Schedule_Q4.pdf",
-        size: "640 KB"
-      }
-    },
-    {
-      id: 6,
-      title: "SK Youth Digital Literacy & Web Development Bootcamp 2026",
-      category: "Event",
-      isEmergency: false,
-      date: "2026-11-04",
-      department: "Sangguniang Kabataan (SK) Council",
-      summary: "The Sangguniang Kabataan Council is launching a free intensive two-day tech skills workshop designed for out-of-school youth, high school students, and aspiring creatives aged 15 to 30. The announcement will be held on November 14 to November 15, 2026 (Saturday & Sunday, 9:00 AM – 5:00 PM) at the 2nd Floor E-Library Tech Hub. Participants will learn hands-on web design, digital graphics, and online freelance portfolio building.",
-      content: `
-        <p>The Sangguniang Kabataan Council proudly presents the 2026 Youth Digital Empowerment and Literacy Bootcamp, a flagship hands-on weekend program created to bridge digital skills gaps and train barangay youth for remote employment opportunities.</p>
-        <p><strong>BOOTCAMP SCHEDULE & VENUE:</strong> The announcement will be held on November 14 to November 15, 2026 (Saturday & Sunday, 9:00 AM – 5:00 PM) at the 2nd Floor E-Library Tech Hub. Thirty (30) fully equipped computer workstations with high-speed fiber internet connection, software suites, and free training modules are reserved for accepted attendees.</p>
-        <p><strong>CURRICULUM BREAKDOWN:</strong></p>
-        <ul>
-          <li><strong>Day 1 (Saturday): Modern Web Architecture:</strong> Practical semantic HTML5 structuring, modern CSS3 layout and design principles, and standard JavaScript programming for interactive web applications.</li>
-          <li><strong>Day 2 Morning (Sunday): Graphic Design & Canva Pro:</strong> Creating impactful community posters, social media banners, brand kits, and digital graphic assets.</li>
-          <li><strong>Day 2 Afternoon (Sunday): Freelance Career Mastery:</strong> Setting up remote freelance profiles, building developer portfolios, and client presentation practices.</li>
-        </ul>
-        <p><strong>BENEFITS:</strong> Complimentary meals and afternoon snacks are provided across both workshop days. Registered attendees who complete all workshop exercises will receive an official Sangguniang Kabataan Certificate of Competency.</p>
-      `,
-      attachment: {
-        name: "SK_Tech_Bootcamp_Curriculum.pdf",
-        size: "580 KB"
-      }
-    }
-  ];
+  let announcements = getPublicActiveAnnouncements();
+  let currentOpenAnnouncementId = null;
 
   // DOM Elements for Announcements
   const announcementsCardsFeed = document.getElementById('announcementsCardsFeed');
@@ -3244,23 +3143,30 @@ if (heroSlides.length > 1) {
     const q = (announcementsSearchInput ? announcementsSearchInput.value : '').trim().toLowerCase();
     const cat = (announcementsCategoryFilter ? announcementsCategoryFilter.value : 'All');
 
-    // 1. Filter dataset dynamically using standard .filter()
+    // 1. Filter active public dataset dynamically
     const filtered = announcements.filter(function (item) {
-      const matchesCategory = (cat === 'All' || item.category.toLowerCase() === cat.toLowerCase());
-      const matchesSearch = (q === '' ||
-        item.title.toLowerCase().includes(q) ||
-        item.summary.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
-        item.department.toLowerCase().includes(q)
+      if (!item || item.status !== 'Active') return false;
+      const itemCategory = String(item.category || 'General');
+      const matchesCategory = (cat === 'All' || itemCategory.toLowerCase() === cat.toLowerCase());
+      const matchesSearch = (
+        q === '' ||
+        String(item.title || '').toLowerCase().includes(q) ||
+        String(item.summary || '').toLowerCase().includes(q) ||
+        String(item.plainContent || '').toLowerCase().includes(q) ||
+        itemCategory.toLowerCase().includes(q) ||
+        String(item.department || '').toLowerCase().includes(q) ||
+        String(item.audience || '').toLowerCase().includes(q)
       );
       return matchesCategory && matchesSearch;
     });
 
-    // 2. Pinned Priority: Active Emergency (isEmergency: true) pinned at the top of the list
+    // 2. Pinned Priority: Active Emergency / Critical Advisories pinned at top, then latest date & broadcast timestamp
     filtered.sort(function (a, b) {
       if (a.isEmergency && !b.isEmergency) return -1;
       if (!a.isEmergency && b.isEmergency) return 1;
-      return b.date.localeCompare(a.date);
+      const dateCmp = String(b.date || '').localeCompare(String(a.date || ''));
+      if (dateCmp !== 0) return dateCmp;
+      return (Number(b.publishedAt) || 0) - (Number(a.publishedAt) || 0);
     });
 
     return filtered;
@@ -3307,10 +3213,21 @@ if (heroSlides.length > 1) {
     }
 
     const html = list.map(function (item) {
+      const safeId = escapeAnnouncementHtml(item.id);
+      const safeTitle = escapeAnnouncementHtml(item.title);
+      const safeSummary = escapeAnnouncementHtml(item.summary);
+      const safeCategory = escapeAnnouncementHtml(item.category);
+      const safeDate = escapeAnnouncementHtml(item.date);
+      const audienceSuffix =
+        item.audience && item.audience !== 'All Residents'
+          ? ' · Target: ' + escapeAnnouncementHtml(item.audience)
+          : '';
+      const safeMetaDept = escapeAnnouncementHtml(item.department) + audienceSuffix;
+
       if (item.isEmergency) {
         // A. EMERGENCY ANNOUNCEMENT CARD (CRITICAL STYLING)
         return `
-          <article class="announcement-card emergency-card" data-id="${item.id}" tabindex="0" role="article" aria-label="${item.title}">
+          <article class="announcement-card emergency-card" data-id="${safeId}" tabindex="0" role="article" aria-label="${safeTitle}">
             <!-- Red Top Banner Bar -->
             <div class="emergency-top-banner">
               <div class="emergency-banner-left">
@@ -3321,43 +3238,43 @@ if (heroSlides.length > 1) {
             </div>
 
             <div class="announcement-card-inner">
-              <!-- Meta Information Row: Light gray category pill + Date string (no icon, no view notice) -->
+              <!-- Meta Information Row -->
               <div class="announcement-meta-row">
                 <div class="meta-left-group">
-                  <span class="meta-category-pill pill-emergency">Emergency</span>
+                  <span class="meta-category-pill pill-emergency">${safeCategory}</span>
                   <span class="meta-date-item">
-                    <time datetime="${item.date}">${item.date}</time>
+                    <time datetime="${safeDate}">${safeDate}</time>
                   </span>
-                  <span class="meta-department-text">${item.department}</span>
+                  <span class="meta-department-text">${safeMetaDept}</span>
                 </div>
               </div>
 
-              <!-- Content: Bold title + Descriptive summary with embedded schedule information -->
-              <h3 class="announcement-card-title">${item.title}</h3>
-              <p class="announcement-card-summary">${item.summary}</p>
+              <!-- Content: Bold title + Descriptive summary -->
+              <h3 class="announcement-card-title">${safeTitle}</h3>
+              <p class="announcement-card-summary">${safeSummary}</p>
             </div>
           </article>
         `;
       } else {
         // B. STANDARD ANNOUNCEMENT CARDS
-        const pillClass = 'pill-' + item.category.toLowerCase().replace(/\s+/g, '-');
+        const pillClass = 'pill-' + String(item.category || 'general').toLowerCase().replace(/\s+/g, '-');
         return `
-          <article class="announcement-card standard-card" data-id="${item.id}" tabindex="0" role="article" aria-label="${item.title}">
+          <article class="announcement-card standard-card" data-id="${safeId}" tabindex="0" role="article" aria-label="${safeTitle}">
             <div class="announcement-card-inner">
-              <!-- Meta Information Row: Light gray category pill + Date string (no icon, no view notice) -->
+              <!-- Meta Information Row -->
               <div class="announcement-meta-row">
                 <div class="meta-left-group">
-                  <span class="meta-category-pill ${pillClass}">${item.category}</span>
+                  <span class="meta-category-pill ${pillClass}">${safeCategory}</span>
                   <span class="meta-date-item">
-                    <time datetime="${item.date}">${item.date}</time>
+                    <time datetime="${safeDate}">${safeDate}</time>
                   </span>
-                  <span class="meta-department-text">${item.department}</span>
+                  <span class="meta-department-text">${safeMetaDept}</span>
                 </div>
               </div>
 
-              <!-- Content: Bold headline title + Summary text paragraph with embedded schedule information -->
-              <h3 class="announcement-card-title">${item.title}</h3>
-              <p class="announcement-card-summary">${item.summary}</p>
+              <!-- Content: Bold headline title + Summary text paragraph -->
+              <h3 class="announcement-card-title">${safeTitle}</h3>
+              <p class="announcement-card-summary">${safeSummary}</p>
             </div>
           </article>
         `;
@@ -3370,15 +3287,15 @@ if (heroSlides.length > 1) {
     const cards = announcementsCardsFeed.querySelectorAll('.announcement-card');
     cards.forEach(function (card) {
       card.addEventListener('click', function () {
-        const id = Number(card.getAttribute('data-id'));
-        openAnnouncementModal(id);
+        const id = card.getAttribute('data-id');
+        if (id) openAnnouncementModal(id);
       });
 
       card.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          const id = Number(card.getAttribute('data-id'));
-          openAnnouncementModal(id);
+          const id = card.getAttribute('data-id');
+          if (id) openAnnouncementModal(id);
         }
       });
     });
@@ -3386,8 +3303,10 @@ if (heroSlides.length > 1) {
 
   // Open Detail Modal
   function openAnnouncementModal(id) {
-    const item = announcements.find(function (a) { return a.id === id; });
+    const item = announcements.find(function (a) { return String(a.id) === String(id); });
     if (!item || !announcementDetailModal || !announcementModalContent) return;
+
+    currentOpenAnnouncementId = String(item.id);
 
     let headerBannerHtml = '';
     if (item.isEmergency) {
@@ -3399,7 +3318,9 @@ if (heroSlides.length > 1) {
     }
 
     let attachmentHtml = '';
-    if (item.attachment) {
+    if (item.attachment && item.attachment.name) {
+      const safeAttName = escapeAnnouncementHtml(item.attachment.name);
+      const safeAttSize = escapeAnnouncementHtml(item.attachment.size || 'PDF Document');
       attachmentHtml = `
         <div class="modal-attachment-card">
           <div class="modal-attachment-left">
@@ -3410,11 +3331,11 @@ if (heroSlides.length > 1) {
               </svg>
             </div>
             <div>
-              <div class="modal-attachment-name">${item.attachment.name}</div>
-              <div class="modal-attachment-meta">Certified Official Memorandum · ${item.attachment.size}</div>
+              <div class="modal-attachment-name">${safeAttName}</div>
+              <div class="modal-attachment-meta">Certified Official Memorandum · ${safeAttSize}</div>
             </div>
           </div>
-          <a href="#announcements" class="modal-download-btn js-btn-download-notice" download="${item.attachment.name}">
+          <a href="#announcements" class="modal-download-btn js-btn-download-notice" download="${safeAttName}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span>Download PDF</span>
           </a>
@@ -3422,26 +3343,34 @@ if (heroSlides.length > 1) {
       `;
     }
 
-    const pillClass = item.isEmergency ? 'pill-emergency' : ('pill-' + item.category.toLowerCase().replace(/\s+/g, '-'));
+    const pillClass = item.isEmergency
+      ? 'pill-emergency'
+      : ('pill-' + String(item.category || 'general').toLowerCase().replace(/\s+/g, '-'));
+    const safeCategory = escapeAnnouncementHtml(item.category);
+    const safeDate = escapeAnnouncementHtml(item.date);
+    const safeId = escapeAnnouncementHtml(item.id);
+    const safeTitle = escapeAnnouncementHtml(item.title);
+    const safeDepartment = escapeAnnouncementHtml(item.department);
+    const safeAudience = escapeAnnouncementHtml(item.audience || 'All Residents');
 
     announcementModalContent.innerHTML = `
       ${headerBannerHtml}
       <div class="announcement-modal-scrollable">
         <div class="modal-meta-bar">
           <div class="meta-left-group">
-            <span class="meta-category-pill ${pillClass}">${item.category}</span>
+            <span class="meta-category-pill ${pillClass}">${safeCategory}</span>
             <span class="meta-date-item">
-              <span>${item.date}</span>
+              <span>Published: ${safeDate}</span>
             </span>
           </div>
-          <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">Ref: #${item.id}</span>
+          <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">Ref: #${safeId}</span>
         </div>
 
-        <h2 class="modal-announcement-title">${item.title}</h2>
+        <h2 class="modal-announcement-title">${safeTitle}</h2>
 
         <div class="modal-department-badge">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="22.01"></line><line x1="15" y1="22" x2="15" y2="22.01"></line><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="15" y1="6" x2="15" y2="6.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="15" y1="10" x2="15" y2="10.01"></line></svg>
-          <span>Issued by: <strong>${item.department}</strong></span>
+          <span>Issued by: <strong>${safeDepartment}</strong> · Audience: <strong>${safeAudience}</strong></span>
         </div>
 
         <div class="modal-announcement-body">
@@ -3480,6 +3409,7 @@ if (heroSlides.length > 1) {
   }
 
   function closeAnnouncementModal() {
+    currentOpenAnnouncementId = null;
     if (!announcementDetailModal) return;
     announcementDetailModal.style.display = 'none';
     announcementDetailModal.setAttribute('aria-hidden', 'true');
@@ -3526,6 +3456,27 @@ if (heroSlides.length > 1) {
       renderAnnouncementsFeed();
     });
   }
+
+  // Real-time synchronization whenever Admin creates, edits, broadcasts, unpublishes, or archives announcements
+  subscribeAnnouncements(function () {
+    announcements = getPublicActiveAnnouncements();
+    renderAnnouncementsFeed();
+
+    if (
+      currentOpenAnnouncementId &&
+      announcementDetailModal &&
+      announcementDetailModal.style.display === 'flex'
+    ) {
+      const updatedActiveItem = announcements.find(function (a) {
+        return String(a.id) === String(currentOpenAnnouncementId);
+      });
+      if (updatedActiveItem) {
+        openAnnouncementModal(updatedActiveItem.id);
+      } else {
+        closeAnnouncementModal();
+      }
+    }
+  });
 
   // Initial render of announcements feed
   renderAnnouncementsFeed();

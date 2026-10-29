@@ -12,8 +12,8 @@
       email: 'admin@brgy360.gov.ph',
       password: 'AdminPassword360!',
       role: 'admin',
-      name: 'Hon. Danilo M. Ramos',
-      title: 'Punong Barangay (Administrator)',
+      name: 'Ma. Victoria M. Marasigan',
+      title: 'Barangay Secretary (Admin)',
       targetUrl: 'admin.html'
     },
     resident: {

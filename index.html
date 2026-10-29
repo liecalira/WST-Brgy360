@@ -1300,8 +1300,12 @@
               <option value="all" selected>All Categories</option>
               <option value="Infrastructure">Infrastructure</option>
               <option value="Health">Health</option>
-              <option value="Administration">Administration</option>
               <option value="Social Services">Social Services</option>
+              <option value="Administration">Administration</option>
+              <option value="Emergency Preparedness">Emergency Preparedness</option>
+              <option value="Education, Sports &amp; Recreation">Education, Sports &amp; Recreation</option>
+              <option value="Agriculture &amp; Livelihood">Agriculture &amp; Livelihood</option>
+              <option value="Environment &amp; Waste Management">Environment &amp; Waste Management</option>
             </select>
             <svg class="budget-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="6 9 12 15 18 9"></polyline>
@@ -1426,14 +1430,20 @@
           </div>
         </div>
 
-        <!-- Chart 2: Doughnut/Pie Chart (Spending by Category) -->
+        <!-- Chart 2: Doughnut/Pie Chart (Spending / Allocation by Category) -->
         <div class="analytics-card">
-          <div class="analytics-card-header">
-            <h3 class="analytics-card-title">Spending by Category</h3>
-            <p class="analytics-card-subtitle">Disbursement breakdown across operational sectors</p>
+          <div class="analytics-card-header analytics-header-split">
+            <div>
+              <h3 class="analytics-card-title" id="publicPieChartTitle">Spending by Category</h3>
+              <p class="analytics-card-subtitle" id="publicPieChartSubtitle">Disbursement breakdown across operational sectors</p>
+            </div>
+            <div class="chart-mode-toggle" id="publicPieChartModeToggle" role="group" aria-label="Pie chart metric mode">
+              <button type="button" class="chart-mode-btn active" data-pie-mode="actual">Actual</button>
+              <button type="button" class="chart-mode-btn" data-pie-mode="budget">Allocated</button>
+            </div>
           </div>
           <div class="chart-wrapper">
-            <canvas id="budgetCategoryPieChart" aria-label="Spending by category doughnut chart" role="img"></canvas>
+            <canvas id="budgetCategoryPieChart" aria-label="Budget distribution by category doughnut chart" role="img"></canvas>
           </div>
         </div>
       </div>
@@ -1749,6 +1759,7 @@
               <option value="Infrastructure">Infrastructure</option>
               <option value="Event">Event</option>
               <option value="Social Services">Social Services</option>
+              <option value="General">General</option>
             </select>
             <svg class="dropdown-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="6 9 12 15 18 9"></polyline>
