@@ -1158,12 +1158,27 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   let citizenProposals = loadCitizenProposals();
-  let capitalProjects = [
+  function clampProjectProgress(value) {
+    const num = Number(value);
+    if (Number.isNaN(num)) return 0;
+    return Math.max(0, Math.min(100, Math.round(num)));
+  }
+
+  function calculateProjectStatusFromProgress(progress) {
+    const pct = clampProjectProgress(progress);
+    if (pct === 100) return 'completed';
+    if (pct >= 25) return 'ongoing';
+    return 'planning';
+  }
+
+  const DEFAULT_CAPITAL_PROJECTS = [
     {
       code: 'PRJ-2026-01',
       title: 'E-Library & Free WiFi Tech Hub Refurbishment',
+      description: 'Refurbishment of the Barangay Hall 2nd Floor into a high-speed digital study center with computer terminals and free internet for students.',
       location: 'Sitio Gitna',
       timeline: '2025-01-10 – 2025-08-15',
+      year: '2025',
       budget: '₱420,000.00',
       progress: 100,
       status: 'completed',
@@ -1172,8 +1187,10 @@ document.addEventListener('DOMContentLoaded', function () {
     {
       code: 'PRJ-2026-02',
       title: 'Drainage Culvert Modernization Phase 1',
+      description: 'Reinforcement and modernization of the main drainage culvert along Sitio Ibaba to prevent street flooding and storm runoff bottlenecks.',
       location: 'Sitio Ibaba',
       timeline: '2025-06-01 – 2025-11-30',
+      year: '2025',
       budget: '₱350,000.00',
       progress: 100,
       status: 'completed',
@@ -1182,8 +1199,10 @@ document.addEventListener('DOMContentLoaded', function () {
     {
       code: 'PRJ-2026-03',
       title: 'Solar Powered Public Streetlighting (Phase 2)',
+      description: 'Installation of standalone solar-powered LED streetlights across dark zones in Sitio Ilaya to bolster nighttime pedestrian and road safety.',
       location: 'Sitio Ilaya',
       timeline: '2026-02-15 – 2026-11-20',
+      year: '2026',
       budget: '₱285,000.00',
       progress: 68,
       status: 'ongoing',
@@ -1192,8 +1211,10 @@ document.addEventListener('DOMContentLoaded', function () {
     {
       code: 'PRJ-2026-04',
       title: 'Barangay Disaster Operations Command Center (BDRRMC)',
+      description: 'Establishment of an all-weather emergency operations and dispatch command center equipped with early-warning monitoring systems.',
       location: 'Potenciana Village',
       timeline: '2026-04-01 – 2026-12-15',
+      year: '2026',
       budget: '₱410,000.00',
       progress: 42,
       status: 'ongoing',
@@ -1202,8 +1223,10 @@ document.addEventListener('DOMContentLoaded', function () {
     {
       code: 'PRJ-2026-05',
       title: 'Sitio Santolan Pedestrian Footbridge Elevation',
+      description: 'Structural elevation and steel handrail reinforcement of the Sitio Santolan pedestrian footbridge for safe all-season creek crossing.',
       location: 'Sitio Santolan',
       timeline: '2026-11-01 – 2027-02-28',
+      year: '2026',
       budget: '₱180,000.00',
       progress: 10,
       status: 'planning',
@@ -1212,14 +1235,76 @@ document.addEventListener('DOMContentLoaded', function () {
     {
       code: 'PRJ-2026-06',
       title: 'CCTV High-Definition Security Grid Expansion (16 Cams)',
+      description: 'Deployment of 16 high-definition security cameras across major intersections, commercial strips, and barangay entry checkpoints.',
       location: 'G.C Berberabe',
       timeline: '2026-03-01 – 2026-10-31',
+      year: '2026',
       budget: '₱170,000.00',
       progress: 35,
       status: 'delayed',
       contractor: 'FiberNet Security Solutions'
     }
   ];
+
+  function normalizeProjectRecord(project) {
+    const matchedDefault = DEFAULT_CAPITAL_PROJECTS.find(d => d.code === project?.code);
+    const progress = clampProjectProgress(project?.progress ?? 0);
+    const rawStatus = String(project?.status || '').toLowerCase().trim();
+    const status = (rawStatus === 'delayed' && progress < 100)
+      ? 'delayed'
+      : calculateProjectStatusFromProgress(progress);
+    const timeline = project?.timeline || matchedDefault?.timeline || '2026-10-15 – 2027-04-30';
+    const yearMatch = String(timeline).match(/\b(20\d{2})\b/);
+    const year = String(project?.year || matchedDefault?.year || (yearMatch ? yearMatch[1] : '2026'));
+    const description = String(
+      project?.description ||
+      matchedDefault?.description ||
+      project?.contractor ||
+      'Barangay Annual Investment Plan (AIP) community infrastructure project.'
+    ).trim();
+
+    return {
+      ...matchedDefault,
+      ...project,
+      timeline,
+      year,
+      description,
+      progress,
+      status
+    };
+  }
+
+  function loadCapitalProjects() {
+    try {
+      const saved = localStorage.getItem('brgy360_capital_projects');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(normalizeProjectRecord);
+        }
+      }
+    } catch (e) {
+      console.warn('Error loading brgy360_capital_projects:', e);
+    }
+    const defaults = DEFAULT_CAPITAL_PROJECTS.map(normalizeProjectRecord);
+    try {
+      localStorage.setItem('brgy360_capital_projects', JSON.stringify(defaults));
+    } catch (e) {}
+    return defaults;
+  }
+
+  function saveCapitalProjects(data) {
+    const listToSave = (data || capitalProjects).map(normalizeProjectRecord);
+    try {
+      localStorage.setItem('brgy360_capital_projects', JSON.stringify(listToSave));
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('brgy360_projects_changed', { detail: listToSave }));
+    } catch (e) {
+      console.warn('Error saving brgy360_capital_projects:', e);
+    }
+  }
+
+  let capitalProjects = loadCapitalProjects();
 
   // Announcements Dataset (Public Bulletins)
   const defaultAnnouncements = [
@@ -2446,6 +2531,24 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 3. Project Status Distribution (Donut Chart)
+    if (year === '2026' && Array.isArray(capitalProjects)) {
+      data.projectStatus.data = [
+        capitalProjects.filter(p => p.status === 'ongoing').length,
+        capitalProjects.filter(p => p.status === 'completed').length,
+        capitalProjects.filter(p => p.status === 'delayed').length,
+        capitalProjects.filter(p => p.status === 'planning').length
+      ];
+    }
+    const repProjLegend = document.getElementById('repProjectLegend');
+    if (repProjLegend && data.projectStatus) {
+      const [cOngoing, cCompleted, cDelayed, cPlanning] = data.projectStatus.data;
+      repProjLegend.innerHTML = `
+        <span class="legend-chip"><span class="legend-dot" style="background:#2563eb;"></span> Ongoing: <strong>${cOngoing}</strong></span>
+        <span class="legend-chip"><span class="legend-dot" style="background:#10b981;"></span> Completed: <strong>${cCompleted}</strong></span>
+        <span class="legend-chip"><span class="legend-dot" style="background:#e11d48;"></span> Delayed: <strong>${cDelayed}</strong></span>
+        <span class="legend-chip"><span class="legend-dot" style="background:#94a3b8;"></span> Planning: <strong>${cPlanning}</strong></span>
+      `;
+    }
     const ctxProjStatus = document.getElementById('repProjectStatusChart');
     if (ctxProjStatus) {
       if (repProjectStatusChart) {
@@ -4586,11 +4689,15 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Cross-page storage synchronization for proposals
+  // Cross-page storage synchronization for proposals & capital projects
   window.addEventListener('storage', function(e) {
     if (e.key === 'brgy360_proposals' || !e.key) {
       citizenProposals = loadCitizenProposals();
       renderProposalsGrid();
+    }
+    if (e.key === 'brgy360_capital_projects') {
+      capitalProjects = loadCapitalProjects();
+      renderProjectsTable();
     }
   });
 
@@ -4775,6 +4882,10 @@ document.addEventListener('DOMContentLoaded', function () {
   function renderProjectsTable() {
     // 1. Calculate project portfolio metrics dynamically
     const totalProjects = capitalProjects.length;
+    const projSectionSub = document.querySelector('#viewProjects .section-sub');
+    if (projSectionSub) {
+      projSectionSub.textContent = `Comprehensive tracking of all ${totalProjects} infrastructure, technology, and public works project${totalProjects === 1 ? '' : 's'} in Barangay Pallocan West`;
+    }
     const ongoingList = capitalProjects.filter(p => p.status === 'ongoing');
     const completedList = capitalProjects.filter(p => p.status === 'completed');
     const planningList = capitalProjects.filter(p => p.status === 'planning');
@@ -4832,8 +4943,41 @@ document.addEventListener('DOMContentLoaded', function () {
     const elPillDelayed = document.getElementById('projPillDelayed');
     if (elPillDelayed) elPillDelayed.textContent = delayedList.length;
 
+    const elNavCounterProjects = document.getElementById('navCounterProjects');
+    if (elNavCounterProjects) elNavCounterProjects.textContent = totalProjects;
+
+    const selectedYear = document.getElementById('dashboardFiscalYearSelect')?.value || '2026';
+    if (REPORTS_ANALYTICS_DATA['2026']?.projectStatus) {
+      REPORTS_ANALYTICS_DATA['2026'].projectStatus.data = [
+        ongoingList.length,
+        completedList.length,
+        delayedList.length,
+        planningList.length
+      ];
+    }
+    if (selectedYear === '2026') {
+      if (repProjectStatusChart) {
+        repProjectStatusChart.data.datasets[0].data = [
+          ongoingList.length,
+          completedList.length,
+          delayedList.length,
+          planningList.length
+        ];
+        repProjectStatusChart.update();
+      }
+      const repProjLegend = document.getElementById('repProjectLegend');
+      if (repProjLegend) {
+        repProjLegend.innerHTML = `
+          <span class="legend-chip"><span class="legend-dot" style="background:#2563eb;"></span> Ongoing: <strong>${ongoingList.length}</strong></span>
+          <span class="legend-chip"><span class="legend-dot" style="background:#10b981;"></span> Completed: <strong>${completedList.length}</strong></span>
+          <span class="legend-chip"><span class="legend-dot" style="background:#e11d48;"></span> Delayed: <strong>${delayedList.length}</strong></span>
+          <span class="legend-chip"><span class="legend-dot" style="background:#94a3b8;"></span> Planning: <strong>${planningList.length}</strong></span>
+        `;
+      }
+    }
+
     if (typeof updateDashboardStatsCards === 'function') {
-      updateDashboardStatsCards(document.getElementById('dashboardFiscalYearSelect')?.value || '2026');
+      updateDashboardStatsCards(selectedYear);
     }
 
     // 2. Render Projects Table Body
@@ -4857,10 +5001,27 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     tbody.innerHTML = filtered.map(p => {
+      const pct = clampProjectProgress(p.progress);
+      const statusKey = (p.status === 'delayed' && pct < 100)
+        ? 'delayed'
+        : calculateProjectStatusFromProgress(pct);
+      p.progress = pct;
+      p.status = statusKey;
+
       let badgeClass = 'blue';
-      if (p.status === 'completed') badgeClass = 'green';
-      if (p.status === 'delayed') badgeClass = 'red';
-      if (p.status === 'planning') badgeClass = 'yellow';
+      let barColor = '#0d47a1';
+      if (statusKey === 'completed') {
+        badgeClass = 'green';
+        barColor = '#16a34a';
+      } else if (statusKey === 'delayed') {
+        badgeClass = 'red';
+        barColor = '#dc2626';
+      } else if (statusKey === 'planning') {
+        badgeClass = 'yellow';
+        barColor = '#d97706';
+      }
+
+      const canMarkDelayed = pct < 100 && statusKey !== 'delayed';
 
       return `
         <tr>
@@ -4871,15 +5032,18 @@ document.addEventListener('DOMContentLoaded', function () {
           <td><strong>${escapeHtml(p.budget)}</strong></td>
           <td>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <div style="flex: 1; height: 6px; background: #e2e8f0; border-radius: 4px; overflow: hidden; min-width: 50px;">
-                <div style="width: ${p.progress}%; height: 100%; background: ${p.progress === 100 ? '#16a34a' : (p.status === 'delayed' ? '#dc2626' : '#0d47a1')};"></div>
+              <div style="flex: 1; height: 6px; background: #e2e8f0; border-radius: 4px; overflow: hidden; min-width: 50px;" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+                <div style="width: ${pct}%; height: 100%; background: ${barColor}; transition: width 0.25s ease, background-color 0.25s ease;"></div>
               </div>
-              <span style="font-weight: 700; font-size: 11px;">${p.progress}%</span>
+              <span style="font-weight: 700; font-size: 11px; min-width: 30px; text-align: right;">${pct}%</span>
             </div>
           </td>
-          <td><span class="badge-status ${badgeClass}">${escapeHtml(p.status.toUpperCase())}</span></td>
+          <td><span class="badge-status ${badgeClass}">${escapeHtml(statusKey.toUpperCase())}</span></td>
           <td class="text-right">
-            <button type="button" class="btn-table-action" onclick="window.advanceProjectProgress('${p.code}')">+ Progress</button>
+            <div class="table-actions">
+              ${canMarkDelayed ? `<button type="button" class="btn-table-action danger-text" onclick="window.markProjectDelayed('${p.code}')" title="Mark project as behind schedule">Delayed</button>` : ''}
+              <button type="button" class="btn-table-action${pct < 100 ? ' primary' : ''}" onclick="window.advanceProjectProgress('${p.code}')">+ Progress</button>
+            </div>
           </td>
         </tr>
       `;
@@ -4889,14 +5053,42 @@ document.addEventListener('DOMContentLoaded', function () {
   window.advanceProjectProgress = function(code) {
     const proj = capitalProjects.find(p => p.code === code);
     if (!proj) return;
-    if (proj.progress < 100) {
-      proj.progress = Math.min(100, proj.progress + 15);
-      if (proj.progress === 100) proj.status = 'completed';
+    const currentPct = clampProjectProgress(proj.progress);
+    if (currentPct < 100) {
+      const previousStatus = proj.status;
+      const updatedPct = clampProjectProgress(currentPct + 15);
+      const updatedStatus = calculateProjectStatusFromProgress(updatedPct);
+
+      proj.progress = updatedPct;
+      proj.status = updatedStatus;
+      saveCapitalProjects();
       renderProjectsTable();
-      showAdminToast('Project Updated', `${proj.title} progress advanced to ${proj.progress}%.`, 'success');
+
+      const statusNote = previousStatus !== updatedStatus
+        ? ` Status updated from ${previousStatus.toUpperCase()} to ${updatedStatus.toUpperCase()}.`
+        : ` Status: ${updatedStatus.toUpperCase()}.`;
+      showAdminToast('Project Updated', `${proj.title} advanced to ${updatedPct}%.${statusNote}`, 'success');
     } else {
+      proj.progress = 100;
+      proj.status = 'completed';
+      saveCapitalProjects();
+      renderProjectsTable();
       showAdminToast('Project Finished', `${proj.title} is already 100% completed.`, 'info');
     }
+  };
+
+  window.markProjectDelayed = function(code) {
+    const proj = capitalProjects.find(p => p.code === code);
+    if (!proj) return;
+    const currentPct = clampProjectProgress(proj.progress);
+    if (currentPct >= 100) {
+      showAdminToast('Project Finished', `${proj.title} is already 100% completed and cannot be marked delayed.`, 'info');
+      return;
+    }
+    proj.status = 'delayed';
+    saveCapitalProjects();
+    renderProjectsTable();
+    showAdminToast('Marked Delayed', `${proj.title} marked as DELAYED (${currentPct}%). Advancing progress will recalculate its status.`, 'warning');
   };
 
   // C. Announcements Table Renderer & Dynamic Metrics Engine
@@ -5245,8 +5437,47 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnCloseNewProjModal = document.getElementById('btnCloseNewProjModal');
   const btnCancelNewProj = document.getElementById('btnCancelNewProj');
   const btnSubmitNewProj = document.getElementById('btnSubmitNewProj');
+  const projStatusSelect = document.getElementById('projStatus');
+  const projProgressInput = document.getElementById('projProgress');
 
-  if (btnNewProjectModal) btnNewProjectModal.addEventListener('click', () => modalNewProj?.classList.add('active'));
+  function syncNewProjectModalStatusFromProgress() {
+    if (!projProgressInput || !projStatusSelect) return;
+    const rawVal = projProgressInput.value;
+    const pct = rawVal === '' ? 0 : clampProjectProgress(rawVal);
+    projStatusSelect.value = calculateProjectStatusFromProgress(pct);
+  }
+
+  if (projProgressInput) {
+    projProgressInput.addEventListener('input', syncNewProjectModalStatusFromProgress);
+    projProgressInput.addEventListener('change', function () {
+      const pct = this.value === '' ? 0 : clampProjectProgress(this.value);
+      this.value = String(pct);
+      syncNewProjectModalStatusFromProgress();
+    });
+  }
+
+  if (projStatusSelect && projProgressInput) {
+    projStatusSelect.addEventListener('change', function () {
+      const selected = this.value;
+      const pct = projProgressInput.value === '' ? 0 : clampProjectProgress(projProgressInput.value);
+      if (selected === 'completed') {
+        projProgressInput.value = '100';
+      } else if (selected === 'ongoing' && (pct < 25 || pct === 100)) {
+        projProgressInput.value = '25';
+      } else if (selected === 'planning' && pct >= 25) {
+        projProgressInput.value = '0';
+      } else if (selected === 'delayed' && pct === 100) {
+        projProgressInput.value = '85';
+      }
+    });
+  }
+
+  if (btnNewProjectModal) {
+    btnNewProjectModal.addEventListener('click', () => {
+      syncNewProjectModalStatusFromProgress();
+      modalNewProj?.classList.add('active');
+    });
+  }
   if (btnCloseNewProjModal) btnCloseNewProjModal.addEventListener('click', () => modalNewProj?.classList.remove('active'));
   if (btnCancelNewProj) btnCancelNewProj.addEventListener('click', () => modalNewProj?.classList.remove('active'));
 
@@ -5292,8 +5523,12 @@ document.addEventListener('DOMContentLoaded', function () {
       const title = (titleEl?.value || '').trim();
       const loc = (locEl?.value || '').trim();
       const budget = (budgetEl?.value || '').trim();
-      const status = statusEl?.value || 'ongoing';
-      const progress = parseInt(progressEl?.value || '10', 10);
+      const rawProgress = progressEl && progressEl.value !== '' ? progressEl.value : '0';
+      const progress = clampProjectProgress(rawProgress);
+      const requestedStatus = (statusEl?.value || '').toLowerCase();
+      const status = (requestedStatus === 'delayed' && progress < 100)
+        ? 'delayed'
+        : calculateProjectStatusFromProgress(progress);
       const desc = (descEl?.value || '').trim();
 
       const titleErr = document.getElementById('projTitleError');
@@ -5335,21 +5570,26 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const newCode = `PRJ-2026-${String(capitalProjects.length + 1).padStart(2, '0')}`;
+      const formattedBudget = '₱' + budgetNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       capitalProjects.push({
         code: newCode,
         title: title,
+        description: desc,
         location: loc,
         timeline: '2026-10-15 – 2027-04-30',
-        budget: `₱${budgetNum.toLocaleString()}`,
+        year: '2026',
+        budget: formattedBudget,
         progress: progress,
         status: status,
         contractor: desc
       });
 
+      saveCapitalProjects();
       renderProjectsTable();
       modalNewProj?.classList.remove('active');
       document.getElementById('newProjectForm')?.reset();
-      showAdminToast('Project Added', `Project ${newCode} recorded under AIP.`, 'success');
+      syncNewProjectModalStatusFromProgress();
+      showAdminToast('Project Added', `Project ${newCode} recorded under AIP (${progress}% · ${status.toUpperCase()}).`, 'success');
     });
   }
 
