@@ -490,12 +490,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   ];
 
+  function isJuanSeedRequestId(idOrRef) {
+    return ['REQ-2026-08492', 'BRGY-84291', 'BRGY-81409', 'BRGY-79104'].includes(String(idOrRef || '').trim());
+  }
+
+  const SEED_SERVICE_REQUEST_MAP = new Map(
+    INITIAL_SERVICE_REQUESTS.map(item => [item.id, item])
+  );
+
   function normalizeServiceRequest(r) {
     if (!r) return null;
     const id = r.id || r.ref || ('REQ-2026-' + Math.floor(10000 + Math.random() * 90000));
     const ref = r.ref || r.id || id;
-    const fullName = r.fullName || r.resident || 'Juan M. Dela Cruz';
-    const resident = r.resident || fullName;
+    const seedMatch = SEED_SERVICE_REQUEST_MAP.get(id) || SEED_SERVICE_REQUEST_MAP.get(ref) || null;
+    const isJuanSeed = isJuanSeedRequestId(id) || isJuanSeedRequestId(ref);
+
+    const fullName = seedMatch
+      ? (seedMatch.fullName || seedMatch.resident)
+      : (r.fullName || r.resident || (isJuanSeed ? 'Juan M. Dela Cruz' : 'Verified Resident'));
+    const resident = seedMatch ? (seedMatch.resident || fullName) : (r.resident || fullName);
     const docType = r.docType || r.documentType || 'Barangay Clearance';
     const documentType = r.documentType || docType;
     const sitio = r.sitio || r.purokSitio || 'Sitio Ibaba';
@@ -508,8 +521,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const age = r.age || '34';
     const contact = r.contact || r.mobile || r.phone || '0917 123 4567';
     const idOnRecord = r.idOnRecord || (r.attachmentName ? `Attached: ${r.attachmentName}` : 'PhilID ****-****-8492');
-    const userEmail = r.userEmail || r.email || '';
-    const residentId = r.residentId || 'PW-2026-08492';
+    const userEmail = isJuanSeed
+      ? 'juan@gmail.com'
+      : (seedMatch ? (seedMatch.userEmail || '') : (r.userEmail || r.email || ''));
+    const residentId = isJuanSeed
+      ? 'PW-2026-08492'
+      : (seedMatch ? `PW-SEED-${seedMatch.id.slice(-5)}` : (r.residentId || ''));
     const residencySince = r.residencySince || 'March 2012';
     const claimMethod = r.claimMethod || 'Physical Pickup at Barangay Hall';
     const claimTarget = r.claimTarget || 'Estimated within 1–2 business days';
@@ -572,6 +589,9 @@ document.addEventListener('DOMContentLoaded', function () {
               list.push(normalizeServiceRequest(seed));
             }
           });
+          const json = JSON.stringify(list);
+          localStorage.setItem('brgy360_service_requests', json);
+          localStorage.setItem('brgy360_requests', json);
           return list;
         }
       }
@@ -1058,17 +1078,29 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   ];
 
+  const SEED_PROPOSAL_MAP = new Map(
+    DEFAULT_CITIZEN_PROPOSALS.map(item => [item.id, item])
+  );
+
   function normalizeProposalRecord(p) {
     if (!p) return null;
     const id = p.id || p.ref || ('PROP-2026-' + Math.floor(100 + Math.random() * 900));
     const ref = p.ref || p.id || id;
+    const seedMatch = SEED_PROPOSAL_MAP.get(id) || SEED_PROPOSAL_MAP.get(ref) || null;
+    const isJuanProposal = id === 'PROP-8421' || ref === 'PROP-8421' || id === 'PROP-2026-001' || ref === 'PROP-2026-001';
     const title = p.title || 'Community Project Proposal';
     const category = p.category || 'Infrastructure';
     const location = p.location || p.sitio || 'Barangay Pallocan West';
     const sitio = p.sitio || p.location || location;
-    const proponent = p.proponent || (p.user ? (p.user.name || p.user.fullName) : '') || 'Juan Dela Cruz';
-    const email = p.email || p.userEmail || '';
-    const residentId = p.residentId || '';
+    const proponent = seedMatch
+      ? seedMatch.proponent
+      : (p.proponent || (p.user ? (p.user.name || p.user.fullName) : '') || (isJuanProposal ? 'Juan Dela Cruz' : 'Community Resident'));
+    const email = isJuanProposal
+      ? 'juan@gmail.com'
+      : (seedMatch ? '' : (p.email || p.userEmail || ''));
+    const residentId = isJuanProposal
+      ? 'PW-2026-08492'
+      : (seedMatch ? `PW-PROP-SEED-${seedMatch.id.slice(-3)}` : (p.residentId || ''));
     const dateFiled = p.dateFiled || (p.date ? p.date : new Date().toISOString().split('T')[0]);
     const date = p.date || dateFiled;
     const year = p.year || (p.dateFiled ? String(p.dateFiled).slice(0, 4) : '2026');
@@ -3121,6 +3153,26 @@ document.addEventListener('DOMContentLoaded', function () {
   window.openPrintModal = openPrintModal;
   window.closePrintModal = closePrintModal;
 
+  function pushScopedUserNotification(targetEmail, notifEntry) {
+    try {
+      const cleanEmail = String(targetEmail || '').trim().toLowerCase();
+      const isJuan = cleanEmail === 'juan@gmail.com' || cleanEmail === 'juan.delacruz@example.com';
+      const storageKey = isJuan
+        ? 'brgy360_notifs'
+        : (cleanEmail ? `brgy360_notifs_${cleanEmail}` : null);
+      if (!storageKey) return;
+
+      const rawNotifs = localStorage.getItem(storageKey);
+      const notifs = rawNotifs ? JSON.parse(rawNotifs) : [];
+      if (!Array.isArray(notifs)) return;
+
+      notifs.unshift(notifEntry);
+      localStorage.setItem(storageKey, JSON.stringify(notifs));
+    } catch (err) {
+      console.warn('Notification sync warning:', err);
+    }
+  }
+
   function setRequestStatus(id, newStatus) {
     const req = serviceRequests.find(r => r.id === id || r.ref === id);
     if (!req) return;
@@ -3137,6 +3189,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     persistServiceRequests();
+    if (req.userEmail) {
+      pushScopedUserNotification(req.userEmail, {
+        id: Date.now(),
+        title: `Request ${newStatus}`,
+        desc: `Your ${req.docType || req.documentType} (${req.ref || req.id}) is now marked "${newStatus}".`,
+        time: 'Just now',
+        unread: true,
+        type: newStatus === 'Rejected' ? 'amber' : (newStatus === 'Completed' ? 'green' : 'blue')
+      });
+    }
     renderRequestsTable();
     renderOverviewQueue();
     updateRequestsCounter(serviceRequests.length);
@@ -3217,24 +3279,15 @@ document.addEventListener('DOMContentLoaded', function () {
   // 8. RESIDENT CONCERNS DESK MANAGEMENT
   // ==============================================================
   function pushResidentStatusNotification(ticket, newStatus, adminNote) {
-    try {
-      const rawNotifs = localStorage.getItem('brgy360_notifs');
-      const notifs = rawNotifs ? JSON.parse(rawNotifs) : [];
-      if (!Array.isArray(notifs)) return;
-
-      const noteSnippet = adminNote ? ` Note: ${adminNote}` : '';
-      notifs.unshift({
-        id: Date.now(),
-        title: `Concern Status Updated: ${newStatus}`,
-        desc: `Ticket ${ticket.id} ("${ticket.title}") was updated to ${newStatus} by Barangay Admin.${noteSnippet}`,
-        time: 'Just now',
-        unread: true,
-        type: newStatus === 'Resolved' ? 'green' : (newStatus === 'In Progress' ? 'blue' : 'amber')
-      });
-      localStorage.setItem('brgy360_notifs', JSON.stringify(notifs));
-    } catch (err) {
-      console.warn('Notification sync warning:', err);
-    }
+    const noteSnippet = adminNote ? ` Note: ${adminNote}` : '';
+    pushScopedUserNotification(ticket.userEmail, {
+      id: Date.now(),
+      title: `Concern Status Updated: ${newStatus}`,
+      desc: `Ticket ${ticket.id} ("${ticket.title}") was updated to ${newStatus} by Barangay Admin.${noteSnippet}`,
+      time: 'Just now',
+      unread: true,
+      type: newStatus === 'Resolved' ? 'green' : (newStatus === 'In Progress' ? 'blue' : 'amber')
+    });
   }
 
   function getConcernUrgencyBadgeHtml(rawUrgency) {

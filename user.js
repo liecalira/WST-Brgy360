@@ -88,6 +88,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const DEFAULT_REQUESTS = [
     {
       ref: 'BRGY-84291',
+      fullName: 'Juan Dela Cruz',
+      resident: 'Juan Dela Cruz',
+      userEmail: 'juan@gmail.com',
+      residentId: 'PW-2026-08492',
       docType: 'Barangay Clearance',
       purpose: 'Local Employment (SM Batangas City application)',
       dateFiled: '2026-10-02',
@@ -98,6 +102,10 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     {
       ref: 'BRGY-81409',
+      fullName: 'Juan Dela Cruz',
+      resident: 'Juan Dela Cruz',
+      userEmail: 'juan@gmail.com',
+      residentId: 'PW-2026-08492',
       docType: 'First-Time Jobseeker (RA 11261)',
       purpose: 'Pre-Employment NBI Clearance requirement',
       dateFiled: '2026-10-03',
@@ -108,6 +116,10 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     {
       ref: 'BRGY-79104',
+      fullName: 'Juan Dela Cruz',
+      resident: 'Juan Dela Cruz',
+      userEmail: 'juan@gmail.com',
+      residentId: 'PW-2026-08492',
       docType: 'Certificate of Residency',
       purpose: 'Bank Account Opening (BDO Batangas)',
       dateFiled: '2026-09-15',
@@ -425,8 +437,64 @@ document.addEventListener('DOMContentLoaded', function () {
     };
   }
 
+  function isDefaultJuanAccount(user) {
+    if (!user) return false;
+    const uEmail = String(user.email || '').trim().toLowerCase();
+    const uId = String(user.residentId || '').trim();
+    return uEmail === 'juan@gmail.com' || uEmail === 'juan.delacruz@example.com' || uId === 'PW-2026-08492';
+  }
+
+  const JUAN_SEED_REQUEST_IDS = new Set([
+    'REQ-2026-08492',
+    'BRGY-84291',
+    'BRGY-81409',
+    'BRGY-79104'
+  ]);
+
+  const ADMIN_OTHER_SEED_REQUEST_OWNERS = {
+    'REQ-2026-08491': 'Maria Santos Alcantara',
+    'REQ-2026-08490': 'Rogelio B. Mendoza',
+    'REQ-2026-08489': 'Carmela D. Hernandez',
+    'REQ-2026-08488': 'Jayson Mark Reyes',
+    'REQ-2026-08487': 'Lourdes P. Castillo',
+    'REQ-2026-08486': 'Arnel G. Dimaculangan',
+    'REQ-2026-08485': 'Bernadette V. Gomez',
+    'REQ-2026-08484': 'Danilo E. Perez',
+    'REQ-2026-08483': 'Corazon T. Marasigan',
+    'REQ-2026-08482': 'Kevin Paul Ramos',
+    'REQ-2026-08481': 'Elena S. Villanueva',
+    'REQ-2026-08480': 'Nestor C. Macalalad',
+    'REQ-2026-08479': 'Rosario M. Javier',
+    'REQ-2026-08478': 'Gilbert R. Tolentino',
+    'REQ-2026-08477': 'Patricia A. Dimaano',
+    'REQ-2026-08476': 'Eduardo F. Cueto',
+    'REQ-2026-08475': 'Kristine Joy Montalbo'
+  };
+
+  const JUAN_SEED_CONCERN_IDS = new Set(['TCK-4021', 'TCK-3890', 'TCK-3412']);
+  const OTHER_SEED_CONCERN_IDS = new Set(['TCK-4018', 'TCK-4015', 'TCK-4009', 'TCK-3994']);
+
+  const JUAN_SEED_PROPOSAL_IDS = new Set(['PROP-8421', 'PROP-2026-001']);
+  const OTHER_SEED_PROPOSAL_OWNERS = {
+    'PROP-2026-002': 'Maria Santos · Women’s Club',
+    'PROP-2026-003': 'Senior Citizens Association',
+    'PROP-2026-004': 'PTA Pres. Ricardo Ramos',
+    'PROP-2026-005': 'Ibaba Homeowners Civic Action',
+    'PROP-2026-006': 'SK Council Pallocan West',
+    'PROP-2026-007': 'Engr. Marco Villanueva',
+    'PROP-2026-008': 'BPSO Tanod Executive Committee',
+    'PROP-2026-009': 'Pallocan Merchants Guild',
+    'PROP-2026-010': 'BDRRMC Volunteer Corps',
+    'PROP-2026-011': 'Dr. Angela Perez & BHWs',
+    'PROP-2026-012': 'PrimeAds Media Group'
+  };
+
   function isConcernOwnedByUser(concern, user) {
     if (!concern || !user) return false;
+    const ref = String(concern.ref || concern.id || '').trim();
+    if (OTHER_SEED_CONCERN_IDS.has(ref)) return false;
+    if (JUAN_SEED_CONCERN_IDS.has(ref)) return isDefaultJuanAccount(user);
+
     const uId = String(user.residentId || '').trim().toLowerCase();
     const cId = String(concern.residentId || '').trim().toLowerCase();
     if (uId && cId && uId === cId) return true;
@@ -435,20 +503,36 @@ document.addEventListener('DOMContentLoaded', function () {
     const cEmail = String(concern.userEmail || '').trim().toLowerCase();
     if (uEmail && cEmail && uEmail === cEmail) return true;
 
-    const uName = String(user.name || '').trim().toLowerCase();
-    const cName = String(concern.reporter || '').trim().toLowerCase();
-    if (uName && cName && uName === cName) return true;
-
-    // Match pre-configured Juan Dela Cruz across both login emails
-    if ((uEmail === 'juan@gmail.com' || uEmail === 'juan.delacruz@example.com') &&
-        (cEmail === 'juan@gmail.com' || cEmail === 'juan.delacruz@example.com' || cName.includes('juan dela cruz') || cName.includes('juan m. dela cruz'))) {
-      return true;
+    if (!cId && !cEmail) {
+      const uName = String(user.name || user.fullName || '').trim().toLowerCase();
+      const cName = String(concern.reporter || '').trim().toLowerCase();
+      if (uName && cName && uName === cName) return true;
     }
+
     return false;
   }
 
-  // Load app state
+  // Load app state & sync with active session resident if available
   let currentUser = loadData('brgy360_user', DEFAULT_USER);
+  try {
+    const rawSession = localStorage.getItem('brgy360_session');
+    if (rawSession && rawSession.startsWith('{')) {
+      const parsedSession = JSON.parse(rawSession);
+      const sessEmail = String(parsedSession?.email || '').trim().toLowerCase();
+      if (parsedSession?.role === 'resident' && sessEmail) {
+        const curEmail = String(currentUser?.email || '').trim().toLowerCase();
+        const residentsDb = JSON.parse(localStorage.getItem('brgy360_residents_db') || '[]');
+        const matchedResident = Array.isArray(residentsDb)
+          ? residentsDb.find(u => u && u.email && u.email.trim().toLowerCase() === sessEmail)
+          : null;
+        if (matchedResident && curEmail !== sessEmail) {
+          currentUser = { ...matchedResident };
+          saveData('brgy360_user', currentUser);
+        }
+      }
+    }
+  } catch (e) {}
+
   if (currentUser && typeof currentUser === 'object') {
     currentUser.sitio = normalizeSitioName(currentUser.sitio);
     if (!currentUser.password) {
@@ -471,23 +555,40 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!r) return null;
     const id = r.id || r.ref || ('REQ-2026-' + Math.floor(10000 + Math.random() * 90000));
     const ref = r.ref || r.id || id;
-    const fullName = r.fullName || r.resident || (currentUser ? (currentUser.fullName || currentUser.name) : 'Juan M. Dela Cruz');
-    const resident = r.resident || fullName;
+    const isJuanSeed = JUAN_SEED_REQUEST_IDS.has(id) || JUAN_SEED_REQUEST_IDS.has(ref);
+    const otherSeedOwner = ADMIN_OTHER_SEED_REQUEST_OWNERS[id] || ADMIN_OTHER_SEED_REQUEST_OWNERS[ref] || null;
+
+    let fullName = r.fullName || r.resident || 'Verified Resident';
+    let resident = r.resident || fullName;
+    let userEmail = r.userEmail || r.email || '';
+    let residentId = r.residentId || '';
+
+    // Restore canonical ownership on seeded records so they never attach to newly created accounts
+    if (isJuanSeed) {
+      fullName = 'Juan Dela Cruz';
+      resident = 'Juan Dela Cruz';
+      userEmail = 'juan@gmail.com';
+      residentId = 'PW-2026-08492';
+    } else if (otherSeedOwner) {
+      fullName = otherSeedOwner;
+      resident = otherSeedOwner;
+      userEmail = '';
+      residentId = 'PW-SEED-' + String(id).slice(-5);
+    }
+
     const docType = r.docType || r.documentType || 'Barangay Clearance';
     const documentType = r.documentType || docType;
-    const sitio = r.sitio || r.purokSitio || (currentUser ? currentUser.sitio : 'Sitio Ibaba');
+    const sitio = r.sitio || r.purokSitio || 'Sitio Ibaba';
     const purokSitio = r.purokSitio || sitio;
-    const address = r.address || (currentUser ? currentUser.address : (sitio + ', Barangay Pallocan West'));
+    const address = r.address || (sitio + ', Barangay Pallocan West');
     const purpose = r.purpose || 'Barangay Certification';
     const dateFiled = r.dateFiled || (r.date ? r.date : new Date().toISOString().slice(0, 10));
     const date = r.date || dateFiled;
     const status = r.status || 'In Review';
-    const age = r.age || (currentUser ? currentUser.age : '34');
-    const contact = r.contact || r.mobile || r.phone || (currentUser ? (currentUser.mobile || currentUser.phone) : '0917 123 4567');
-    const idOnRecord = r.idOnRecord || (r.attachmentName ? `Attached: ${r.attachmentName}` : (currentUser ? currentUser.idOnRecord : 'PhilID ****-****-8492'));
-    const userEmail = r.userEmail || r.email || (currentUser ? currentUser.email : '');
-    const residentId = r.residentId || (currentUser ? currentUser.residentId : 'PW-2026-08492');
-    const residencySince = r.residencySince || (currentUser ? currentUser.residencySince : 'March 2012');
+    const age = r.age || '34';
+    const contact = r.contact || r.mobile || r.phone || '0917 123 4567';
+    const idOnRecord = r.idOnRecord || (r.attachmentName ? `Attached: ${r.attachmentName}` : 'PhilID ****-****-8492');
+    const residencySince = r.residencySince || 'March 2012';
     const claimMethod = r.claimMethod || 'Physical Pickup at Barangay Hall';
     const claimTarget = r.claimTarget || 'Estimated within 1–2 business days';
     const notes = r.notes || (status === 'Ready for Pickup' ? 'Cleared by Lupong Tagapamayapa. Document printed and sealed. Ready for collection.' : 'Application received online. Document being prepared for validation by Barangay Secretary.');
@@ -520,25 +621,31 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function isRequestOwnedByUser(req, user) {
-    if (!req) return false;
-    const uEmail = String(user?.email || '').trim().toLowerCase();
-    const rEmail = String(req.userEmail || req.email || '').trim().toLowerCase();
-    if (uEmail && rEmail && uEmail === rEmail) return true;
+    if (!req || !user) return false;
+    const id = String(req.id || '').trim();
+    const ref = String(req.ref || '').trim();
 
-    const uId = String(user?.residentId || '').trim().toLowerCase();
+    if (ADMIN_OTHER_SEED_REQUEST_OWNERS[id] || ADMIN_OTHER_SEED_REQUEST_OWNERS[ref]) {
+      return false;
+    }
+    if (JUAN_SEED_REQUEST_IDS.has(id) || JUAN_SEED_REQUEST_IDS.has(ref)) {
+      return isDefaultJuanAccount(user);
+    }
+
+    const uId = String(user.residentId || '').trim().toLowerCase();
     const rId = String(req.residentId || '').trim().toLowerCase();
     if (uId && rId && uId === rId) return true;
 
-    const uName = String(user?.name || user?.fullName || '').trim().toLowerCase();
-    const rName = String(req.fullName || req.resident || '').trim().toLowerCase();
-    if (uName && rName && (uName === rName || rName.includes(uName) || uName.includes(rName))) return true;
+    const uEmail = String(user.email || '').trim().toLowerCase();
+    const rEmail = String(req.userEmail || req.email || '').trim().toLowerCase();
+    if (uEmail && rEmail && uEmail === rEmail) return true;
 
-    // Default seeded requests for default demo resident Juan Dela Cruz
-    const isDefaultJuan = !user || uEmail === 'juan@gmail.com' || uEmail === 'juan.delacruz@example.com' || uName.includes('juan');
-    if (isDefaultJuan) {
-      const defaultJuanRefs = ['REQ-2026-08492', 'BRGY-84291', 'BRGY-81409', 'BRGY-79104'];
-      if (defaultJuanRefs.includes(req.id) || defaultJuanRefs.includes(req.ref)) return true;
+    if (!rId && !rEmail) {
+      const uName = String(user.name || user.fullName || '').trim().toLowerCase();
+      const rName = String(req.fullName || req.resident || '').trim().toLowerCase();
+      if (uName && rName && uName === rName) return true;
     }
+
     return false;
   }
 
@@ -553,6 +660,12 @@ document.addEventListener('DOMContentLoaded', function () {
       saveData('brgy360_requests', list);
     } else {
       list = list.map(normalizeUserRequestRecord);
+      if (!localStorage.getItem('brgy360_requests_owner_sanitized_v2')) {
+        saveData('brgy360_service_requests', list);
+        saveData('brgy360_requests', list);
+        saveData('brgy360_user_requests', list);
+        localStorage.setItem('brgy360_requests_owner_sanitized_v2', 'true');
+      }
     }
     return list;
   }
@@ -601,24 +714,33 @@ document.addEventListener('DOMContentLoaded', function () {
     allConcerns = loadAndSyncAllConcerns();
     userConcerns = allConcerns.filter(c => isConcernOwnedByUser(c, currentUser));
   }
-  function isUserProposal(p, user) {
-    if (!p) return false;
-    const uEmail = (user?.email || '').trim().toLowerCase();
-    const pEmail = (p.email || p.userEmail || '').trim().toLowerCase();
-    if (uEmail && pEmail && uEmail === pEmail) return true;
 
-    const uId = (user?.residentId || '').trim().toLowerCase();
-    const pId = (p.residentId || '').trim().toLowerCase();
+  function isUserProposal(p, user) {
+    if (!p || !user) return false;
+    const id = String(p.id || '').trim();
+    const ref = String(p.ref || '').trim();
+
+    if (OTHER_SEED_PROPOSAL_OWNERS[id] || OTHER_SEED_PROPOSAL_OWNERS[ref]) {
+      return false;
+    }
+    if (JUAN_SEED_PROPOSAL_IDS.has(id) || JUAN_SEED_PROPOSAL_IDS.has(ref)) {
+      return isDefaultJuanAccount(user);
+    }
+
+    const uId = String(user.residentId || '').trim().toLowerCase();
+    const pId = String(p.residentId || '').trim().toLowerCase();
     if (uId && pId && uId === pId) return true;
 
-    const uName = (user?.name || user?.fullName || '').trim().toLowerCase();
-    const pName = (p.proponent || '').trim().toLowerCase();
-    if (uName && pName && (uName === pName || pName.includes(uName) || uName.includes(pName))) return true;
+    const uEmail = String(user.email || '').trim().toLowerCase();
+    const pEmail = String(p.email || p.userEmail || '').trim().toLowerCase();
+    if (uEmail && pEmail && uEmail === pEmail) return true;
 
-    if ((uEmail === 'juan@gmail.com' || uEmail === 'juan.delacruz@example.com' || !user) &&
-        (p.ref === 'PROP-8421' || p.id === 'PROP-8421' || p.id === 'PROP-2026-001' || p.ref === 'PROP-2026-001')) {
-      return true;
+    if (!pId && !pEmail) {
+      const uName = String(user.name || user.fullName || '').trim().toLowerCase();
+      const pName = String(p.proponent || '').trim().toLowerCase();
+      if (uName && pName && uName === pName) return true;
     }
+
     return false;
   }
 
@@ -626,13 +748,28 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!p) return null;
     const id = p.id || p.ref || ('PROP-' + Math.floor(1000 + Math.random() * 9000));
     const ref = p.ref || p.id || id;
+    const isJuanSeed = JUAN_SEED_PROPOSAL_IDS.has(id) || JUAN_SEED_PROPOSAL_IDS.has(ref);
+    const otherSeedProponent = OTHER_SEED_PROPOSAL_OWNERS[id] || OTHER_SEED_PROPOSAL_OWNERS[ref] || null;
+
     const title = p.title || 'Community Project Proposal';
     const category = p.category || 'Infrastructure';
     const location = normalizeSitioName(p.location || p.sitio || 'Sitio Ibaba');
     const sitio = location;
-    const proponent = p.proponent || (currentUser ? (currentUser.name || currentUser.fullName) : '') || 'Juan Dela Cruz';
-    const email = p.email || p.userEmail || (currentUser ? currentUser.email : 'juan@gmail.com');
-    const residentId = p.residentId || (currentUser ? currentUser.residentId : 'PW-2026-08492');
+
+    let proponent = p.proponent || 'Community Resident';
+    let email = p.email || p.userEmail || '';
+    let residentId = p.residentId || '';
+
+    if (isJuanSeed) {
+      proponent = 'Juan Dela Cruz';
+      email = 'juan@gmail.com';
+      residentId = 'PW-2026-08492';
+    } else if (otherSeedProponent) {
+      proponent = otherSeedProponent;
+      email = '';
+      residentId = 'PW-PROP-SEED-' + String(id).slice(-3);
+    }
+
     const dateFiled = p.dateFiled || (p.date ? p.date : new Date().toISOString().split('T')[0]);
     const date = p.date || dateFiled;
     const year = p.year || (p.dateFiled ? String(p.dateFiled).slice(0, 4) : '2026');
@@ -670,7 +807,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const councilNote = p.councilNote || p.councilNotes || '';
     const councilNotes = p.councilNotes || p.councilNote || councilNote;
 
-    return {
+    const norm = {
       ...p,
       id,
       ref,
@@ -724,10 +861,16 @@ document.addEventListener('DOMContentLoaded', function () {
         councilNote: 'Endorsed for technical site survey by the Committee on Infrastructure. Calendar for prioritization during the Barangay Assembly Deliberation.',
         councilNotes: 'Endorsed for technical site survey by the Committee on Infrastructure. Calendar for prioritization during the Barangay Assembly Deliberation.'
       };
-      all = [defaultJuan];
+      all = [defaultJuan].map(normalizeUserProposalRecord);
       saveData('brgy360_proposals', all);
+      return all;
     }
-    return all.map(normalizeUserProposalRecord);
+    const normalized = all.map(normalizeUserProposalRecord);
+    if (!localStorage.getItem('brgy360_proposals_owner_sanitized_v2')) {
+      saveData('brgy360_proposals', normalized);
+      localStorage.setItem('brgy360_proposals_owner_sanitized_v2', 'true');
+    }
+    return normalized;
   }
 
   let allProposals = loadAndSyncAllProposals();
@@ -752,10 +895,41 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     return '<span class="status-pill status-pending">Pending</span>';
   }
-  let userNotifications = loadData('brgy360_notifs', DEFAULT_NOTIFS);
 
-  // Set active session
-  localStorage.setItem('brgy360_session', 'active');
+  function getNotifsStorageKey() {
+    if (isDefaultJuanAccount(currentUser)) {
+      return 'brgy360_notifs';
+    }
+    const cleanEmail = String(currentUser?.email || '').trim().toLowerCase();
+    if (cleanEmail) {
+      return 'brgy360_notifs_' + cleanEmail;
+    }
+    const cleanId = String(currentUser?.residentId || '').trim().toLowerCase();
+    return cleanId ? ('brgy360_notifs_' + cleanId) : 'brgy360_notifs_guest';
+  }
+
+  function loadUserNotifications() {
+    const key = getNotifsStorageKey();
+    const fallback = isDefaultJuanAccount(currentUser) ? DEFAULT_NOTIFS : [];
+    const loaded = loadData(key, fallback);
+    return Array.isArray(loaded) ? loaded : fallback;
+  }
+
+  function saveUserNotifications() {
+    saveData(getNotifsStorageKey(), userNotifications);
+  }
+
+  let userNotifications = loadUserNotifications();
+
+  // Preserve JSON session object if present
+  if (!localStorage.getItem('brgy360_session')) {
+    localStorage.setItem('brgy360_session', JSON.stringify({
+      role: 'resident',
+      email: currentUser?.email || '',
+      name: currentUser?.name || currentUser?.fullName || 'Resident User',
+      loginTime: new Date().toISOString()
+    }));
+  }
 
   // ==========================================================
   // 2. DOM ELEMENT SELECTORS
@@ -1070,11 +1244,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Attach click handler to mark individual as read
     notifList.querySelectorAll('.notif-item').forEach(function (item) {
       item.addEventListener('click', function () {
-        const id = parseInt(this.getAttribute('data-notif-id'), 10);
-        const itemObj = userNotifications.find(n => n.id === id);
+        const rawId = this.getAttribute('data-notif-id');
+        const itemObj = userNotifications.find(n => String(n.id) === String(rawId));
         if (itemObj) {
           itemObj.unread = false;
-          saveData('brgy360_notifs', userNotifications);
+          saveUserNotifications();
           renderNotifications();
         }
       });
@@ -1084,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (markAllReadBtn) {
     markAllReadBtn.addEventListener('click', function () {
       userNotifications.forEach(n => { n.unread = false; });
-      saveData('brgy360_notifs', userNotifications);
+      saveUserNotifications();
       renderNotifications();
       showToast('Notifications Updated', 'All notices marked as read.');
     });
@@ -1139,12 +1313,36 @@ document.addEventListener('DOMContentLoaded', function () {
     const accountDob = document.getElementById('accountDob');
     const accountGender = document.getElementById('accountGender');
     const accountCivilStatus = document.getElementById('accountCivilStatus');
+    const accountMemberSince = document.getElementById('accountMemberSince');
+    const accountIdDocTitle = document.getElementById('accountIdDocTitle');
+    const accountIdDocNum = document.getElementById('accountIdDocNum');
     if (accountAvatar) accountAvatar.textContent = initial;
     if (accountFullName) accountFullName.textContent = name;
     if (accountSitio) accountSitio.textContent = sitio;
     if (accountDob) accountDob.textContent = currentUser.dob || 'June 15, 1992';
-    if (accountGender) accountGender.textContent = currentUser.gender || 'Male';
+    if (accountGender) accountGender.textContent = currentUser.gender || 'Not Specified';
     if (accountCivilStatus) accountCivilStatus.textContent = currentUser.civilStatus || 'Single';
+    if (accountMemberSince) {
+      if (currentUser.submittedAt) {
+        const regDate = new Date(currentUser.submittedAt);
+        accountMemberSince.textContent = !isNaN(regDate.getTime())
+          ? regDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+          : 'October 2026';
+      } else {
+        accountMemberSince.textContent = isDefaultJuanAccount(currentUser) ? 'March 2024' : 'October 2026';
+      }
+    }
+    if (accountIdDocTitle) {
+      accountIdDocTitle.textContent = currentUser.idType || 'Philippine National ID (PhilID)';
+    }
+    if (accountIdDocNum) {
+      if (currentUser.idNumber) {
+        const tail = String(currentUser.idNumber).slice(-4);
+        accountIdDocNum.textContent = '****-****-' + tail;
+      } else {
+        accountIdDocNum.textContent = isDefaultJuanAccount(currentUser) ? '****-****-8492' : 'Verified on File';
+      }
+    }
 
     // Edit form inputs
     const profileMobile = document.getElementById('profileMobile');
@@ -1564,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', function () {
           unread: true,
           type: 'amber'
         });
-        saveData('brgy360_notifs', userNotifications);
+        saveUserNotifications();
 
         renderRequestsTable();
         renderDashboardKPIs();
@@ -1649,7 +1847,7 @@ document.addEventListener('DOMContentLoaded', function () {
           unread: false,
           type: 'blue'
         });
-        saveData('brgy360_notifs', userNotifications);
+        saveUserNotifications();
 
         renderRequestsTable();
         renderDashboardKPIs();
@@ -1698,7 +1896,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 32px;">No requests found matching your filter criteria.</td></tr>';
+      const emptyMsg = userRequests.length === 0
+        ? 'You have no service requests yet. Click "+ New Application" or select a document above to submit your first request.'
+        : 'No requests found matching your filter criteria.';
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 32px;">${emptyMsg}</td></tr>`;
       return;
     }
 
@@ -1829,7 +2030,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (filtered.length === 0) {
-      container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 40px; background: #ffffff; border-radius: 12px; border: 1px dashed var(--border);">No concerns found matching your selected filter.</div>';
+      const emptyConcernMsg = userConcerns.length === 0
+        ? 'You have not submitted any concerns yet. Click "+ Submit New Concern" above to file a report.'
+        : 'No concerns found matching your selected filter.';
+      container.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 40px; background: #ffffff; border-radius: 12px; border: 1px dashed var(--border);">${emptyConcernMsg}</div>`;
       return;
     }
 
@@ -2193,7 +2397,7 @@ document.addEventListener('DOMContentLoaded', function () {
         unread: true,
         type: 'blue'
       });
-      saveData('brgy360_notifs', userNotifications);
+      saveUserNotifications();
 
       // Refresh UI
       renderDashboardKPIs();
@@ -2442,7 +2646,7 @@ document.addEventListener('DOMContentLoaded', function () {
           unread: true,
           type: 'amber'
         });
-        saveData('brgy360_notifs', userNotifications);
+        saveUserNotifications();
 
         // Reset filter pill to "All" so user immediately sees their newly submitted concern
         const allFilterBtn = document.querySelector('#concernsFilterPills .filter-pill-btn[data-filter="All"]');
@@ -2683,7 +2887,7 @@ document.addEventListener('DOMContentLoaded', function () {
         unread: true,
         type: 'green'
       });
-      saveData('brgy360_notifs', userNotifications);
+      saveUserNotifications();
 
       renderDashboardKPIs();
       renderDashboardActivityTable();
@@ -3466,15 +3670,20 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   window.addEventListener('storage', function (e) {
-    if (e.key === 'brgy360_concerns') {
+    if (e.key === 'brgy360_service_requests' || e.key === 'brgy360_requests') {
+      refreshUserRequestsState();
+      renderDashboardKPIs();
+      renderDashboardActivityTable();
+      renderRequestsTable();
+    } else if (e.key === 'brgy360_concerns') {
       refreshUserConcernsState();
       renderDashboardKPIs();
       renderDashboardActivityTable();
       renderConcernsFeed();
     } else if (e.key === 'brgy360_proposals' || !e.key) {
       handleProposalSync();
-    } else if (e.key === 'brgy360_notifs') {
-      userNotifications = loadData('brgy360_notifs', DEFAULT_NOTIFS);
+    } else if (e.key === getNotifsStorageKey() || e.key === 'brgy360_notifs') {
+      userNotifications = loadUserNotifications();
       renderNotifications();
     }
   });
