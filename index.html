@@ -7,6 +7,7 @@
   <meta name="description" content="Brgy360 civic governance platform with full-spectrum descriptive, predictive, and prescriptive analytics console for Barangay Pallocan West.">
   <meta property="og:title" content="Brgy360 - Barangay Services Platform">
   <meta property="og:description" content="Brgy360 civic governance platform with full-spectrum descriptive, predictive, and prescriptive analytics console for Barangay Pallocan West.">
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 
   <!-- Google Font: Poppins (Complete weights for consistent typography) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,7 +34,7 @@
     <div class="nav-container">
       <!-- Left side: Logo & Title -->
       <a href="#home" class="logo-group">
-        <img src="assets/logo.png" alt="Brgy360 Logo" class="nav-logo">
+        <img src="assets/logo.svg" alt="Brgy360 Logo" class="nav-logo">
         <span class="nav-title">Brgy360</span>
       </a>
 
@@ -73,7 +74,7 @@
 
     <div class="hero-content">
       <!-- Large centered logo (approx 140px) -->
-      <img src="assets/logo1.png" alt="Brgy360 Emblem" class="hero-logo">
+      <img src="assets/logo.svg" alt="Brgy360 Emblem" class="hero-logo">
 
       <!-- Small uppercase tagline -->
       <p class="tagline">Your Barangay, All in One.</p>
@@ -638,7 +639,7 @@
           <div class="kpi-slot kpi-slot-highlight">
             <span class="kpi-label">Completion Rate</span>
             <span class="kpi-value kpi-rate-accent" id="kpiRate">33%</span>
-            <span class="kpi-subtext">2 of 6 projects delivered</span>
+            <span class="kpi-subtext" id="kpiRateSubtext">2 of 6 projects delivered</span>
           </div>
         </div>
 
@@ -697,7 +698,7 @@
 
       <!-- Active Filter Status & Count -->
       <div class="projects-results-count">
-        <span>Showing <strong id="visibleProjectsCount">6</strong> of <strong>6</strong> projects</span>
+        <span>Showing <strong id="visibleProjectsCount">6</strong> of <strong id="totalProjectsCount">6</strong> projects</span>
         <button type="button" id="resetFiltersBtn" class="reset-filters-btn" style="display: none;">Reset Filters</button>
       </div>
 

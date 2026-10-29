@@ -1376,7 +1376,7 @@ if (heroSlides.length > 1) {
   }, 3000); // 3 seconds per photo
 }
 
-  // 9. Projects Filter, Search, and Live Counter
+  // 9. Projects Dynamic Portfolio Sync, Filter, Search, KPIs, and Live Counter
   const projectSearchInput = document.getElementById('projectSearchInput');
   const projectStatusFilter = document.getElementById('projectStatusFilter');
   const projectYearFilter = document.getElementById('projectYearFilter');
@@ -1386,71 +1386,348 @@ if (heroSlides.length > 1) {
   const projectsGrid = document.getElementById('projectsGrid');
   const emptyState = document.getElementById('projectsEmptyState');
   const visibleProjectsCount = document.getElementById('visibleProjectsCount');
+  const totalProjectsCount = document.getElementById('totalProjectsCount');
 
-  if (projectsGrid) {
-    const projectCards = Array.from(projectsGrid.querySelectorAll('.project-card'));
+  const DEFAULT_PUBLIC_PROJECTS = [
+    {
+      code: 'PRJ-2026-01',
+      title: 'E-Library & Free WiFi Tech Hub Refurbishment',
+      description: 'Refurbishment of the Barangay Hall 2nd Floor into a high-speed digital study center with computer terminals and free internet for students.',
+      location: 'Sitio Gitna',
+      timeline: '2025-01-10 – 2025-08-15',
+      year: '2025',
+      budget: '₱420,000.00',
+      progress: 100,
+      status: 'completed',
+      contractor: 'Batangas IT Systems Corp'
+    },
+    {
+      code: 'PRJ-2026-02',
+      title: 'Drainage Culvert Modernization Phase 1',
+      description: 'Reinforcement and modernization of the main drainage culvert along Sitio Ibaba to prevent street flooding and storm runoff bottlenecks.',
+      location: 'Sitio Ibaba',
+      timeline: '2025-06-01 – 2025-11-30',
+      year: '2025',
+      budget: '₱350,000.00',
+      progress: 100,
+      status: 'completed',
+      contractor: 'Solid Ground Infra Builders'
+    },
+    {
+      code: 'PRJ-2026-03',
+      title: 'Solar Powered Public Streetlighting (Phase 2)',
+      description: 'Installation of standalone solar-powered LED streetlights across dark zones in Sitio Ilaya to bolster nighttime pedestrian and road safety.',
+      location: 'Sitio Ilaya',
+      timeline: '2026-02-15 – 2026-11-20',
+      year: '2026',
+      budget: '₱285,000.00',
+      progress: 68,
+      status: 'ongoing',
+      contractor: 'SunPower Philippines Co'
+    },
+    {
+      code: 'PRJ-2026-04',
+      title: 'Barangay Disaster Operations Command Center (BDRRMC)',
+      description: 'Establishment of an all-weather emergency operations and dispatch command center equipped with early-warning monitoring systems.',
+      location: 'Potenciana Village',
+      timeline: '2026-04-01 – 2026-12-15',
+      year: '2026',
+      budget: '₱410,000.00',
+      progress: 42,
+      status: 'ongoing',
+      contractor: 'Metropolitan Tech Infrastructure'
+    },
+    {
+      code: 'PRJ-2026-05',
+      title: 'Sitio Santolan Pedestrian Footbridge Elevation',
+      description: 'Structural elevation and steel handrail reinforcement of the Sitio Santolan pedestrian footbridge for safe all-season creek crossing.',
+      location: 'Sitio Santolan',
+      timeline: '2026-11-01 – 2027-02-28',
+      year: '2026',
+      budget: '₱180,000.00',
+      progress: 10,
+      status: 'planning',
+      contractor: 'DPWH Batangas 1st District DEO'
+    },
+    {
+      code: 'PRJ-2026-06',
+      title: 'CCTV High-Definition Security Grid Expansion (16 Cams)',
+      description: 'Deployment of 16 high-definition security cameras across major intersections, commercial strips, and barangay entry checkpoints.',
+      location: 'G.C Berberabe',
+      timeline: '2026-03-01 – 2026-10-31',
+      year: '2026',
+      budget: '₱170,000.00',
+      progress: 35,
+      status: 'delayed',
+      contractor: 'FiberNet Security Solutions'
+    }
+  ];
 
-    function applyProjectFilters() {
-      const searchQuery = (projectSearchInput ? projectSearchInput.value : '').trim().toLowerCase();
-      const statusFilter = projectStatusFilter ? projectStatusFilter.value.toLowerCase() : 'all';
-      const yearFilter = projectYearFilter ? projectYearFilter.value.toLowerCase() : 'all';
+  function escapePublicHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
-      // Show/hide clear search button
-      if (clearSearchBtn) {
-        clearSearchBtn.style.display = searchQuery.length > 0 ? 'flex' : 'none';
-      }
+  function clampPublicProgress(value) {
+    const num = Number(value);
+    if (Number.isNaN(num)) return 0;
+    return Math.max(0, Math.min(100, Math.round(num)));
+  }
 
-      // Check if any non-default filter is active
-      const hasActiveFilters = searchQuery.length > 0 || statusFilter !== 'all' || yearFilter !== 'all';
-      if (resetFiltersBtn) {
-        resetFiltersBtn.style.display = hasActiveFilters ? 'inline-block' : 'none';
-      }
+  function getStatusFromPublicProgress(progress) {
+    const pct = clampPublicProgress(progress);
+    if (pct === 100) return 'completed';
+    if (pct >= 25) return 'ongoing';
+    return 'planning';
+  }
 
-      let visibleCount = 0;
+  function normalizePublicProject(project) {
+    const matchedDefault = DEFAULT_PUBLIC_PROJECTS.find(function (d) { return d.code === project?.code; });
+    const progress = clampPublicProgress(project?.progress ?? 0);
+    const rawStatus = String(project?.status || '').toLowerCase().trim();
+    const status = (rawStatus === 'delayed' && progress < 100)
+      ? 'delayed'
+      : getStatusFromPublicProgress(progress);
+    const timeline = project?.timeline || matchedDefault?.timeline || '2026-10-15 – 2027-04-30';
+    const yearMatch = String(timeline).match(/\b(20\d{2})\b/);
+    const year = String(project?.year || matchedDefault?.year || (yearMatch ? yearMatch[1] : '2026'));
+    const description = String(
+      project?.description ||
+      matchedDefault?.description ||
+      project?.contractor ||
+      'Barangay Annual Investment Plan (AIP) community infrastructure project.'
+    ).trim();
 
-      projectCards.forEach(function (card) {
-        const cardStatus = (card.getAttribute('data-status') || '').toLowerCase();
-        const cardYear = (card.getAttribute('data-year') || '').toLowerCase();
-        const cardText = card.textContent.toLowerCase();
+    return {
+      ...matchedDefault,
+      ...project,
+      timeline: timeline,
+      year: year,
+      description: description,
+      progress: progress,
+      status: status
+    };
+  }
 
-        const matchesStatus = statusFilter === 'all' || cardStatus === statusFilter;
-        const matchesYear = yearFilter === 'all' || cardYear === yearFilter;
-        const matchesSearch = searchQuery === '' || cardText.includes(searchQuery);
-
-        if (matchesStatus && matchesYear && matchesSearch) {
-          card.style.display = 'flex';
-          visibleCount++;
-        } else {
-          card.style.display = 'none';
+  function loadPublicCapitalProjects() {
+    try {
+      const saved = localStorage.getItem('brgy360_capital_projects');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(normalizePublicProject);
         }
-      });
-
-      if (visibleProjectsCount) {
-        visibleProjectsCount.textContent = visibleCount;
       }
+    } catch (e) {
+      console.warn('Could not load brgy360_capital_projects:', e);
+    }
+    return DEFAULT_PUBLIC_PROJECTS.map(normalizePublicProject);
+  }
 
-      if (emptyState) {
-        emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+  let publicTrendChartInstance = null;
+
+  function computeYearCompletionMetric(projectsList, targetYear) {
+    const yrProjects = projectsList.filter(function (p) { return String(p.year) === String(targetYear); });
+    if (yrProjects.length === 0) return 0;
+    const avgProgress = Math.round(
+      yrProjects.reduce(function (sum, p) { return sum + clampPublicProgress(p.progress); }, 0) / yrProjects.length
+    );
+    return avgProgress;
+  }
+
+  function updatePublicProjectKPIsAndTrend(projectsList) {
+    const total = projectsList.length;
+    const planningCount = projectsList.filter(function (p) { return p.status === 'planning'; }).length;
+    const ongoingCount = projectsList.filter(function (p) { return p.status === 'ongoing'; }).length;
+    const completedCount = projectsList.filter(function (p) { return p.status === 'completed'; }).length;
+    const delayedCount = projectsList.filter(function (p) { return p.status === 'delayed'; }).length;
+    const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+    const elPlanning = document.getElementById('kpiPlanning');
+    const elOngoing = document.getElementById('kpiOngoing');
+    const elCompleted = document.getElementById('kpiCompleted');
+    const elDelayed = document.getElementById('kpiDelayed');
+    const elRate = document.getElementById('kpiRate');
+    const elRateSub = document.getElementById('kpiRateSubtext');
+
+    if (elPlanning) elPlanning.textContent = String(planningCount);
+    if (elOngoing) elOngoing.textContent = String(ongoingCount);
+    if (elCompleted) elCompleted.textContent = String(completedCount);
+    if (elDelayed) elDelayed.textContent = String(delayedCount);
+    if (elRate) elRate.textContent = completionRate + '%';
+    if (elRateSub) {
+      elRateSub.textContent = completedCount + ' of ' + total + ' project' + (total === 1 ? '' : 's') + ' delivered';
+    }
+    if (totalProjectsCount) {
+      totalProjectsCount.textContent = String(total);
+    }
+
+    if (publicTrendChartInstance) {
+      const rate2025 = computeYearCompletionMetric(projectsList, '2025');
+      const rate2026 = computeYearCompletionMetric(projectsList, '2026');
+      publicTrendChartInstance.data.datasets[0].data = [rate2025, rate2026];
+      publicTrendChartInstance.update();
+    }
+  }
+
+  function formatStatusBadgeLabel(status) {
+    if (status === 'completed') return 'Completed';
+    if (status === 'ongoing') return 'Ongoing';
+    if (status === 'delayed') return 'Delayed';
+    return 'Planning';
+  }
+
+  function applyPublicProjectFilters() {
+    if (!projectsGrid) return;
+    const projectCards = Array.from(projectsGrid.querySelectorAll('.project-card'));
+    const searchQuery = (projectSearchInput ? projectSearchInput.value : '').trim().toLowerCase();
+    const statusFilter = projectStatusFilter ? projectStatusFilter.value.toLowerCase() : 'all';
+    const yearFilter = projectYearFilter ? projectYearFilter.value.toLowerCase() : 'all';
+
+    if (clearSearchBtn) {
+      clearSearchBtn.style.display = searchQuery.length > 0 ? 'flex' : 'none';
+    }
+
+    const hasActiveFilters = searchQuery.length > 0 || statusFilter !== 'all' || yearFilter !== 'all';
+    if (resetFiltersBtn) {
+      resetFiltersBtn.style.display = hasActiveFilters ? 'inline-block' : 'none';
+    }
+
+    let visibleCount = 0;
+
+    projectCards.forEach(function (card) {
+      const cardStatus = (card.getAttribute('data-status') || '').toLowerCase();
+      const cardYear = (card.getAttribute('data-year') || '').toLowerCase();
+      const cardText = card.textContent.toLowerCase();
+
+      const matchesStatus = statusFilter === 'all' || cardStatus === statusFilter;
+      const matchesYear = yearFilter === 'all' || cardYear === yearFilter;
+      const matchesSearch = searchQuery === '' || cardText.includes(searchQuery);
+
+      if (matchesStatus && matchesYear && matchesSearch) {
+        card.style.display = 'flex';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    if (visibleProjectsCount) {
+      visibleProjectsCount.textContent = String(visibleCount);
+    }
+
+    if (emptyState) {
+      emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+  }
+
+  function renderPublicProjectsPortfolio() {
+    if (!projectsGrid) return;
+    const projectsList = loadPublicCapitalProjects();
+
+    // Keep year dropdown options synced if new years are added
+    if (projectYearFilter) {
+      const currentYearVal = projectYearFilter.value || 'all';
+      const yearsSet = new Set(['2026', '2025']);
+      projectsList.forEach(function (p) {
+        if (p.year) yearsSet.add(String(p.year));
+      });
+      const sortedYears = Array.from(yearsSet).sort(function (a, b) { return b.localeCompare(a); });
+      projectYearFilter.innerHTML = '<option value="all">All Years</option>' +
+        sortedYears.map(function (yr) {
+          return '<option value="' + escapePublicHtml(yr) + '">' + escapePublicHtml(yr) + '</option>';
+        }).join('');
+      if (currentYearVal === 'all' || yearsSet.has(currentYearVal)) {
+        projectYearFilter.value = currentYearVal;
       }
     }
 
+    projectsGrid.innerHTML = projectsList.map(function (p) {
+      const statusKey = p.status;
+      const statusLabel = formatStatusBadgeLabel(statusKey);
+      const pct = clampPublicProgress(p.progress);
+
+      return `
+        <article class="project-card card-${escapePublicHtml(statusKey)}" data-status="${escapePublicHtml(statusKey)}" data-year="${escapePublicHtml(p.year)}" data-code="${escapePublicHtml(p.code || '')}">
+          <div>
+            <div class="project-card-top">
+              <span class="status-badge-pill">
+                <span class="status-dot"></span>
+                • ${escapePublicHtml(statusLabel)}
+              </span>
+              <span class="project-year-pill">${escapePublicHtml(p.year)}</span>
+            </div>
+
+            <div class="project-card-body">
+              <h3 class="project-title">${escapePublicHtml(p.title)}</h3>
+              <p class="project-desc">${escapePublicHtml(p.description)}</p>
+            </div>
+
+            <ul class="project-details-list">
+              <li class="detail-item">
+                <svg class="detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span>${escapePublicHtml(p.location)}</span>
+              </li>
+              <li class="detail-item">
+                <svg class="detail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span>${escapePublicHtml(p.timeline)}</span>
+              </li>
+            </ul>
+
+            <div class="project-budget-row">
+              <span class="budget-label">Budget:</span>
+              <span class="budget-amount">${escapePublicHtml(p.budget)}</span>
+            </div>
+          </div>
+
+          <div class="project-progress-wrap">
+            <div class="progress-header">
+              <span>Progress</span>
+              <span class="progress-percentage">${pct}%</span>
+            </div>
+            <div class="progress-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-fill" style="width: ${pct}%;"></div>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    updatePublicProjectKPIsAndTrend(projectsList);
+    applyPublicProjectFilters();
+  }
+
+  if (projectsGrid) {
     if (projectSearchInput) {
-      projectSearchInput.addEventListener('input', applyProjectFilters);
+      projectSearchInput.addEventListener('input', applyPublicProjectFilters);
     }
 
     if (projectStatusFilter) {
-      projectStatusFilter.addEventListener('change', applyProjectFilters);
+      projectStatusFilter.addEventListener('change', applyPublicProjectFilters);
     }
 
     if (projectYearFilter) {
-      projectYearFilter.addEventListener('change', applyProjectFilters);
+      projectYearFilter.addEventListener('change', applyPublicProjectFilters);
     }
 
     if (clearSearchBtn) {
       clearSearchBtn.addEventListener('click', function () {
         projectSearchInput.value = '';
         projectSearchInput.focus();
-        applyProjectFilters();
+        applyPublicProjectFilters();
       });
     }
 
@@ -1458,7 +1735,7 @@ if (heroSlides.length > 1) {
       if (projectSearchInput) projectSearchInput.value = '';
       if (projectStatusFilter) projectStatusFilter.value = 'all';
       if (projectYearFilter) projectYearFilter.value = 'all';
-      applyProjectFilters();
+      applyPublicProjectFilters();
     }
 
     if (resetFiltersBtn) {
@@ -1468,6 +1745,28 @@ if (heroSlides.length > 1) {
     if (emptyStateResetBtn) {
       emptyStateResetBtn.addEventListener('click', resetAllFilters);
     }
+
+    renderPublicProjectsPortfolio();
+
+    window.addEventListener('storage', function (e) {
+      if (!e.key || e.key === 'brgy360_capital_projects') {
+        renderPublicProjectsPortfolio();
+      }
+    });
+
+    window.addEventListener('brgy360_projects_changed', function () {
+      renderPublicProjectsPortfolio();
+    });
+
+    window.addEventListener('pageshow', function () {
+      renderPublicProjectsPortfolio();
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        renderPublicProjectsPortfolio();
+      }
+    });
   }
 
   // 10. Propose a Project Modal Logic
@@ -1743,13 +2042,16 @@ if (heroSlides.length > 1) {
   }
   const chartCanvas = document.getElementById('projectTrendChart');
   if (chartCanvas && typeof Chart !== 'undefined') {
-    new Chart(chartCanvas, {
+    const initialProjectsForTrend = loadPublicCapitalProjects();
+    const initialRate2025 = computeYearCompletionMetric(initialProjectsForTrend, '2025');
+    const initialRate2026 = computeYearCompletionMetric(initialProjectsForTrend, '2026');
+    publicTrendChartInstance = new Chart(chartCanvas, {
       type: 'line',
       data: {
         labels: ['FY 2025', 'FY 2026 (Active Cycle)'],
         datasets: [{
-          label: 'Completion Rate',
-          data: [100, 23],
+          label: 'Average Progress / Completion',
+          data: [initialRate2025, initialRate2026],
           borderColor: '#0d47a1',
           backgroundColor: 'rgba(13, 71, 161, 0.12)',
           fill: true,
