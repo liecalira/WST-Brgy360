@@ -168,9 +168,26 @@ document.addEventListener('DOMContentLoaded', function () {
     resetPasswordVisibility(authModal);
   }
 
-  function openAuthModal(view) {
-    if (localStorage.getItem('brgy360_session') === 'active') {
-      window.location.href = 'user.html';
+  function getActiveSessionInfo() {
+    const rawSession = localStorage.getItem('brgy360_session');
+    const currentRole = localStorage.getItem('currentUserRole');
+    if (!rawSession) return { active: false, role: null };
+    if (rawSession === 'active') {
+      return { active: true, role: currentRole || 'resident' };
+    }
+    try {
+      const parsed = JSON.parse(rawSession);
+      if (parsed && typeof parsed === 'object') {
+        return { active: true, role: parsed.role || currentRole || 'resident' };
+      }
+    } catch (e) {}
+    return { active: false, role: null };
+  }
+
+  function openAuthModal(view, forceOpen = false) {
+    const sessionInfo = getActiveSessionInfo();
+    if (!forceOpen && sessionInfo.active) {
+      window.location.href = sessionInfo.role === 'admin' ? 'admin.html' : 'user.html';
       return;
     }
     if (!authModal) return;
@@ -197,7 +214,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // LOGGED-IN SESSION STATE SYNCHRONIZATION ON PUBLIC VIEW
   // ==========================================================
   function updatePublicViewStateForSession() {
-    const isSessionActive = localStorage.getItem('brgy360_session') === 'active';
+    const sessionInfo = getActiveSessionInfo();
+    const isAdminSession = sessionInfo.active && sessionInfo.role === 'admin';
+    const isSessionActive = sessionInfo.active && sessionInfo.role === 'resident';
     let currentUser = null;
     if (isSessionActive) {
       try {
@@ -214,7 +233,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const userName = currentUser ? (currentUser.name || 'Juan Dela Cruz') : '';
-    const userInitial = currentUser ? (currentUser.avatarInitial || userName.charAt(0).toUpperCase()) : 'J';
     const VALID_PUBLIC_SITIOS = ['Sitio Ibaba', 'Sitio Santolan', 'Sitio Ilaya', 'Sitio Gitna', 'Tierra Verde', 'Potenciana Village', 'G.C Berberabe'];
     const rawSitio = currentUser ? (currentUser.sitio || 'Sitio Ibaba') : 'Sitio Ibaba';
     const userSitio = VALID_PUBLIC_SITIOS.includes(rawSitio) ? rawSitio : (rawSitio === 'G.C. Berberabe' ? 'G.C Berberabe' : 'Sitio Ibaba');
@@ -222,7 +240,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // 1. Update Navbar Auth Slot (no user name, no sign out button)
     const navAuthSlot = document.getElementById('navAuthSlot');
     if (navAuthSlot) {
-      if (isSessionActive) {
+      if (isAdminSession) {
+        navAuthSlot.innerHTML = `<a href="admin.html" class="nav-btn-auth" id="navAdminConsoleBtn" title="Access Admin Console">Admin Console &rarr;</a>`;
+      } else if (isSessionActive) {
         navAuthSlot.innerHTML = `<a href="user.html" class="nav-btn-auth" id="navResidentPortalBtn" title="Access your Resident Portal">Resident Portal &rarr;</a>`;
       } else {
         navAuthSlot.innerHTML = `<a href="#login" class="nav-btn-auth" id="openLoginBtn">Login / Register</a>`;
@@ -230,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (newLoginBtn) {
           newLoginBtn.addEventListener('click', function (e) {
             e.preventDefault();
-            openAuthModal('login');
+            openAuthModal('login', true);
           });
         }
       }
@@ -380,9 +400,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const footerAdminLink = document.getElementById('footerAdminLink');
   if (footerAdminLink) {
-    footerAdminLink.addEventListener('click', function () {
-      localStorage.setItem('currentUserRole', 'admin');
-      localStorage.setItem('brgy360_session', 'active');
+    footerAdminLink.addEventListener('click', function (e) {
+      const sessionInfo = getActiveSessionInfo();
+      if (sessionInfo.active && sessionInfo.role === 'admin') {
+        return; // Allow direct navigation to admin.html
+      }
+      // Open Login modal so user can authenticate with Admin credentials even if currently signed in as resident
+      e.preventDefault();
+      openAuthModal('login', true);
+      if (loginFeedback) {
+        loginFeedback.className = 'auth-feedback-banner warning';
+        loginFeedback.textContent = 'Administrator Sign-In Required: Please enter your administrator email and password to access the Admin Console.';
+        loginFeedback.style.display = 'block';
+      }
+    });
+  }
+
+  if (loginFeedback) {
+    loginFeedback.addEventListener('click', function (e) {
+      const adminDeskLink = e.target.closest('a[href^="admin.html"]');
+      if (adminDeskLink) {
+        localStorage.setItem('currentUserRole', 'admin');
+        localStorage.setItem('brgy360_session', JSON.stringify({
+          role: 'admin',
+          email: 'admin@brgy360.gov.ph',
+          name: 'Ma. Victoria M. Marasigan',
+          loginTime: new Date().toISOString()
+        }));
+      }
     });
   }
 
@@ -390,11 +435,15 @@ document.addEventListener('DOMContentLoaded', function () {
   const authUrlParams = new URLSearchParams(window.location.search);
   if (authUrlParams.get('auth') === 'denied') {
     setTimeout(function () {
-      openAuthModal('login');
+      openAuthModal('login', true);
       if (loginFeedback) {
         loginFeedback.className = 'auth-feedback-banner error';
         loginFeedback.textContent = 'Access Denied: Admin Privileges Required. Please log in with your administrator credentials.';
         loginFeedback.style.display = 'block';
+      }
+      if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
       }
     }, 200);
   }
@@ -405,6 +454,7 @@ document.addEventListener('DOMContentLoaded', function () {
       let isValid = true;
       const emailVal = loginEmail ? loginEmail.value.trim() : '';
       const passVal = loginPassword ? loginPassword.value : '';
+      const passTrimmed = passVal.trim();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
       if (!emailVal) {
@@ -415,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function () {
         isValid = false;
       }
 
-      if (!passVal) {
+      if (!passTrimmed) {
         setFieldError(loginPassword, loginPasswordError, 'Password is required.');
         isValid = false;
       }
@@ -426,12 +476,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Dual-Role Account 1: Administrator
       if (emailLower === 'admin@brgy360.gov.ph') {
-        if (passVal !== 'AdminPassword360!') {
+        const expectedAdminPass = localStorage.getItem('brgy360_pwd_admin@brgy360.gov.ph') || 'AdminPassword360!';
+        if (passVal !== expectedAdminPass && passTrimmed !== expectedAdminPass) {
           setFieldError(loginPassword, loginPasswordError, 'Invalid administrator password.');
           return;
         }
         localStorage.setItem('currentUserRole', 'admin');
-        localStorage.setItem('brgy360_session', 'active');
+        localStorage.setItem('brgy360_session', JSON.stringify({
+          role: 'admin',
+          email: 'admin@brgy360.gov.ph',
+          name: 'Ma. Victoria M. Marasigan',
+          loginTime: new Date().toISOString()
+        }));
         if (loginFeedback) {
           loginFeedback.className = 'auth-feedback-banner success';
           loginFeedback.textContent = 'Administrator authenticated! Loading Executive Console...';
@@ -962,8 +1018,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (btnPendingToLogin) {
     btnPendingToLogin.addEventListener('click', function () {
       closePendingModal();
-      openAuthModal();
-      showLoginView();
+      openAuthModal('login', true);
     });
   }
   if (btnPendingToAdmin) {
@@ -2336,7 +2391,8 @@ if (heroSlides.length > 1) {
       `;
     }).join('');
 
-    const isSessionActive = localStorage.getItem('brgy360_session') === 'active';
+    const sessionInfoForSvc = getActiveSessionInfo();
+    const isSessionActive = sessionInfoForSvc.active && sessionInfoForSvc.role === 'resident';
     let currentUserName = 'Juan Dela Cruz';
     let currentUserSitio = 'Sitio Ibaba';
     if (isSessionActive) {

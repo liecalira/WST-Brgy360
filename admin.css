@@ -6943,8 +6943,8 @@ body.print-modal-open {
 }
 
 .modal-box-budget-summary {
-  max-width: 960px;
-  width: 95%;
+  max-width: 1160px;
+  width: 96%;
 }
 
 .btn-navy-solid {
@@ -7086,6 +7086,7 @@ body.print-modal-open {
 
 .budget-bulk-edit-table {
   width: 100%;
+  min-width: 1020px;
   border-collapse: collapse;
   font-size: 12.5px;
 }
@@ -7144,6 +7145,21 @@ body.print-modal-open {
   font-size: 12.5px;
   color: #0f172a;
   background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+select.bulk-edit-input {
+  min-width: 140px;
+  padding: 6px 28px 6px 10px;
+  cursor: pointer;
+}
+
+input[type="number"].bulk-edit-input {
+  min-width: 125px;
+}
+
+input[type="text"].bulk-edit-input {
+  min-width: 165px;
 }
 
 .bulk-edit-input:focus {

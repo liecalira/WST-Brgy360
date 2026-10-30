@@ -7896,31 +7896,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Workflow Action Controls Configuration
     const auditStatus = document.getElementById('resReviewAuditStatus');
+    const auditDot = document.querySelector('#resReviewModal .res-modal-audit-note .status-pill-dot');
     const btnApprove = document.getElementById('btnApproveResident');
     const btnReject = document.getElementById('btnTriggerRejectModal');
 
     if (auditStatus) {
       if (app.status === 'Verified') {
         auditStatus.innerHTML = `<span style="color: #16a34a;">✓ Verified by Admin (${app.reviewedAt ? new Date(app.reviewedAt).toLocaleDateString() : 'Active'})</span>`;
+        if (auditDot) auditDot.style.background = '#16a34a';
       } else if (app.status === 'Rejected') {
         auditStatus.innerHTML = `<span style="color: #dc2626;">✕ Declined (${app.rejectionReason || 'Criteria Unmet'})</span>`;
+        if (auditDot) auditDot.style.background = '#dc2626';
       } else {
         auditStatus.innerHTML = `<span style="color: #d97706;">⚡ Awaiting Initial Verification Review</span>`;
+        if (auditDot) auditDot.style.background = '#d97706';
       }
     }
 
     if (btnApprove) {
       if (app.status === 'Verified') {
-        btnApprove.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Re-send Activation Link</span>`;
+        btnApprove.style.display = 'none';
       } else if (app.status === 'Rejected') {
+        btnApprove.style.display = 'inline-flex';
         btnApprove.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Reconsider &amp; Approve</span>`;
       } else {
+        btnApprove.style.display = 'inline-flex';
         btnApprove.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Approve Account</span>`;
       }
     }
 
     if (btnReject) {
-      btnReject.style.display = app.status === 'Rejected' ? 'none' : 'inline-flex';
+      btnReject.style.display = (app.status === 'Verified' || app.status === 'Rejected') ? 'none' : 'inline-flex';
     }
 
     // Open Modal
@@ -7930,7 +7936,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function approveResidentAccount(appId) {
     const app = residentApplications.find(a => a.id === appId);
-    if (!app) return;
+    if (!app || app.status === 'Verified') return;
 
     const token = app.activationToken || `ACT-${Math.floor(10000 + Math.random() * 90000)}`;
     app.status = 'Verified';
@@ -8018,7 +8024,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function openResidentRejectModal(appId) {
     const app = residentApplications.find(a => a.id === appId);
-    if (!app) return;
+    if (!app || app.status === 'Verified') return;
 
     currentRejectingResId = appId;
 
@@ -8048,7 +8054,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!currentRejectingResId) return;
 
     const app = residentApplications.find(a => a.id === currentRejectingResId);
-    if (!app) return;
+    if (!app || app.status === 'Verified') return;
 
     // Get selected reason
     const selectedRadio = document.querySelector('input[name="resRejectReason"]:checked');
