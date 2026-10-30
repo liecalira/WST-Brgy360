@@ -578,20 +578,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function loadServiceRequests() {
     try {
-      const raw = localStorage.getItem('brgy360_service_requests') || localStorage.getItem('brgy360_requests');
-      if (raw) {
+      const raw =
+        localStorage.getItem('brgy360_service_requests') ||
+        localStorage.getItem('brgy360_requests') ||
+        localStorage.getItem('brgy360_user_requests');
+      const alreadySeeded = localStorage.getItem('brgy360_admin_requests_seeded_v1') === 'true';
+
+      if (raw !== null) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           const list = parsed.map(normalizeServiceRequest);
-          const existingIds = new Set(list.map(r => r.id || r.ref));
-          INITIAL_SERVICE_REQUESTS.forEach(seed => {
-            if (!existingIds.has(seed.id) && !existingIds.has(seed.ref)) {
-              list.push(normalizeServiceRequest(seed));
-            }
-          });
-          const json = JSON.stringify(list);
-          localStorage.setItem('brgy360_service_requests', json);
-          localStorage.setItem('brgy360_requests', json);
+          if (!alreadySeeded) {
+            const existingIds = new Set(list.map(r => r.id || r.ref));
+            INITIAL_SERVICE_REQUESTS.forEach(seed => {
+              if (!existingIds.has(seed.id) && !existingIds.has(seed.ref)) {
+                list.push(normalizeServiceRequest(seed));
+              }
+            });
+            localStorage.setItem('brgy360_admin_requests_seeded_v1', 'true');
+            const json = JSON.stringify(list);
+            localStorage.setItem('brgy360_service_requests', json);
+            localStorage.setItem('brgy360_requests', json);
+          }
           return list;
         }
       }
@@ -603,6 +611,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const json = JSON.stringify(initial);
       localStorage.setItem('brgy360_service_requests', json);
       localStorage.setItem('brgy360_requests', json);
+      localStorage.setItem('brgy360_admin_requests_seeded_v1', 'true');
     } catch (e) {}
     return initial;
   }
@@ -1661,29 +1670,33 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   ];
 
-  let residentApplications = [];
-  try {
-    const storedRes = localStorage.getItem('brgy360_resident_applications');
-    if (storedRes) {
-      residentApplications = JSON.parse(storedRes);
-      if (Array.isArray(residentApplications)) {
-        residentApplications.forEach((app) => {
-          if (!app) return;
-          app.sitio = normalizeSitioName(app.sitio);
-          if (typeof app.address === 'string') {
-            app.address = app.address
-              .replace(/Purok\s*2\s*Embankment/gi, 'Sitio Ibaba')
-              .replace(/G\.C\.\s*Berberabe/gi, 'G.C Berberabe');
-          }
-        });
+  function loadResidentApplications() {
+    try {
+      const storedRes = localStorage.getItem('brgy360_resident_applications');
+      if (storedRes) {
+        const parsed = JSON.parse(storedRes);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((app) => {
+            if (!app) return;
+            app.sitio = normalizeSitioName(app.sitio);
+            if (typeof app.address === 'string') {
+              app.address = app.address
+                .replace(/Purok\s*2\s*Embankment/gi, 'Sitio Ibaba')
+                .replace(/G\.C\.\s*Berberabe/gi, 'G.C Berberabe');
+            }
+          });
+          return parsed;
+        }
       }
-    } else {
-      residentApplications = [...DEFAULT_RESIDENT_APPLICATIONS];
-      localStorage.setItem('brgy360_resident_applications', JSON.stringify(residentApplications));
+      const seeded = [...DEFAULT_RESIDENT_APPLICATIONS];
+      localStorage.setItem('brgy360_resident_applications', JSON.stringify(seeded));
+      return seeded;
+    } catch (e) {
+      return [...DEFAULT_RESIDENT_APPLICATIONS];
     }
-  } catch (e) {
-    residentApplications = [...DEFAULT_RESIDENT_APPLICATIONS];
   }
+
+  let residentApplications = loadResidentApplications();
 
   function saveResidentApplications() {
     try {
@@ -2089,6 +2102,277 @@ document.addEventListener('DOMContentLoaded', function () {
     };
   }
 
+  function getActiveDashboardYear() {
+    return document.getElementById('dashboardFiscalYearSelect')?.value || '2026';
+  }
+
+  function extractRecordYear(record, fallback = '2026') {
+    if (!record || typeof record !== 'object') return String(fallback);
+    const candidates = [
+      record.year,
+      record.dateFiled,
+      record.date,
+      record.timeline,
+      record.registeredDate,
+      record.id,
+      record.ref,
+      record.code
+    ];
+    for (const c of candidates) {
+      if (!c) continue;
+      const match = String(c).match(/\b(20\d{2})\b/);
+      if (match) return match[1];
+    }
+    return String(fallback);
+  }
+
+  const SERVICE_REQUEST_TYPE_BUCKETS = [
+    { key: 'Clearance', label: 'Barangay Clearance', shortLabel: 'Clearance', color: '#0b1e36', alwaysShow: true },
+    { key: 'Indigency', label: 'Certificate of Indigency', shortLabel: 'Indigency', color: '#2563eb', alwaysShow: true },
+    { key: 'Residency', label: 'Certificate of Residency', shortLabel: 'Residency', color: '#0284c7', alwaysShow: true },
+    { key: 'Business', label: 'Business Clearance', shortLabel: 'Business', color: '#d97706', alwaysShow: true },
+    { key: 'Jobseeker', label: 'First-Time Jobseeker', shortLabel: 'Jobseeker', color: '#10b981', alwaysShow: true },
+    { key: 'Mediation', label: 'KP Mediation', shortLabel: 'Mediation', color: '#7c3aed', alwaysShow: false },
+    { key: 'Other', label: 'Other Certificates', shortLabel: 'Other', color: '#64748b', alwaysShow: false }
+  ];
+
+  function classifyServiceRequestType(rawType) {
+    const s = String(rawType || '').trim().toLowerCase();
+    if (!s || (s.includes('barangay clearance') && !s.includes('business'))) {
+      return SERVICE_REQUEST_TYPE_BUCKETS[0];
+    }
+    if (s.includes('indigency')) {
+      return SERVICE_REQUEST_TYPE_BUCKETS[1];
+    }
+    if (s.includes('residency')) {
+      return SERVICE_REQUEST_TYPE_BUCKETS[2];
+    }
+    if (s.includes('business') || s.includes('permit')) {
+      return SERVICE_REQUEST_TYPE_BUCKETS[3];
+    }
+    if (s.includes('job') || s.includes('seeker') || s.includes('first-time') || s.includes('11261')) {
+      return SERVICE_REQUEST_TYPE_BUCKETS[4];
+    }
+    if (s.includes('mediation') || s.includes('conciliation') || s.includes('katarungang') || s.includes('lupon')) {
+      return SERVICE_REQUEST_TYPE_BUCKETS[5];
+    }
+    if (s.includes('clearance')) {
+      return SERVICE_REQUEST_TYPE_BUCKETS[0];
+    }
+    return SERVICE_REQUEST_TYPE_BUCKETS[6];
+  }
+
+  function isRequestActiveForChart(req) {
+    const st = String(req?.status || '').trim().toLowerCase();
+    return st !== 'rejected' && st !== 'cancelled';
+  }
+
+  function getDynamicRequestTypeAnalytics(year = '2026') {
+    const yearStr = String(year || '2026');
+    const allReqs = Array.isArray(serviceRequests) ? serviceRequests : [];
+    const yearReqs = allReqs.filter((r) => extractRecordYear(r, '2026') === yearStr);
+
+    if (yearStr !== '2026' && yearReqs.length === 0 && REPORTS_ANALYTICS_DATA[yearStr]?.requestType) {
+      const fallback = REPORTS_ANALYTICS_DATA[yearStr].requestType;
+      const shortLabels = ['Clearance', 'Indigency', 'Residency', 'Business', 'Jobseeker'];
+      return {
+        labels: [...fallback.labels],
+        shortLabels: shortLabels.slice(0, fallback.labels.length),
+        data: [...fallback.data],
+        colors: [...fallback.colors],
+        details: fallback.data.map((cnt) => ({
+          active: cnt,
+          inReview: 0,
+          readyOrCompleted: cnt,
+          inactive: 0
+        })),
+        isEmpty: fallback.data.every((n) => n === 0)
+      };
+    }
+
+    const statsMap = new Map();
+    SERVICE_REQUEST_TYPE_BUCKETS.forEach((b) => {
+      statsMap.set(b.key, {
+        bucket: b,
+        active: 0,
+        inReview: 0,
+        readyOrCompleted: 0,
+        inactive: 0,
+        total: 0
+      });
+    });
+
+    yearReqs.forEach((r) => {
+      const bucket = classifyServiceRequestType(r.docType || r.documentType);
+      const entry = statsMap.get(bucket.key);
+      if (!entry) return;
+      entry.total += 1;
+      if (isRequestActiveForChart(r)) {
+        entry.active += 1;
+        if (r.status === 'Ready for Pickup' || r.status === 'Completed' || r.status === 'Approved') {
+          entry.readyOrCompleted += 1;
+        } else {
+          entry.inReview += 1;
+        }
+      } else {
+        entry.inactive += 1;
+      }
+    });
+
+    const visibleEntries = [];
+    statsMap.forEach((entry) => {
+      if (entry.bucket.alwaysShow || entry.total > 0) {
+        visibleEntries.push(entry);
+      }
+    });
+
+    const activeData = visibleEntries.map((e) => e.active);
+    const isEmpty = activeData.every((n) => n === 0);
+
+    return {
+      labels: visibleEntries.map((e) => e.bucket.label),
+      shortLabels: visibleEntries.map((e) => e.bucket.shortLabel),
+      data: activeData,
+      colors: visibleEntries.map((e) => e.bucket.color),
+      details: visibleEntries.map((e) => ({
+        active: e.active,
+        inReview: e.inReview,
+        readyOrCompleted: e.readyOrCompleted,
+        inactive: e.inactive
+      })),
+      isEmpty
+    };
+  }
+
+  function classifyConcernChartBucket(rawCategory) {
+    const s = String(rawCategory || '').trim().toLowerCase();
+    if (!s || s.includes('infra') || s.includes('road') || s.includes('drain') || s.includes('light')) {
+      return 'Infrastructure';
+    }
+    if (s.includes('sanit') || s.includes('waste') || s.includes('garbage')) {
+      return 'Sanitation';
+    }
+    if (s.includes('safe') || s.includes('sec') || s.includes('patrol') || s.includes('peace')) {
+      return 'Safety';
+    }
+    if (s.includes('noise') || s.includes('disturb')) {
+      return 'Noise';
+    }
+    if (s.includes('util') || s.includes('water') || s.includes('power') || s.includes('electric')) {
+      return 'Utilities';
+    }
+    return 'Other';
+  }
+
+  function getDynamicConcernsAnalytics(year = '2026') {
+    const yearStr = String(year || '2026');
+    const allConcerns = Array.isArray(incidentTickets) ? incidentTickets : [];
+    const yearConcerns = allConcerns.filter((c) => extractRecordYear(c, '2026') === yearStr);
+
+    if (yearStr !== '2026' && yearConcerns.length === 0 && REPORTS_ANALYTICS_DATA[yearStr]?.concerns) {
+      const fb = REPORTS_ANALYTICS_DATA[yearStr].concerns;
+      return {
+        labels: [...fb.labels],
+        data: [...fb.data],
+        color: fb.color || '#e11d48',
+        details: fb.data.map((cnt) => ({ total: cnt, open: 0, resolved: cnt }))
+      };
+    }
+
+    const baseCategories = ['Infrastructure', 'Sanitation', 'Safety', 'Noise', 'Utilities'];
+    const countsMap = new Map();
+    [...baseCategories, 'Other'].forEach((cat) => {
+      countsMap.set(cat, { total: 0, open: 0, resolved: 0 });
+    });
+
+    yearConcerns.forEach((item) => {
+      const bucket = classifyConcernChartBucket(item.category);
+      const entry = countsMap.get(bucket) || countsMap.get('Other');
+      entry.total += 1;
+      if (normalizeConcernStatus(item.status) === 'Resolved') {
+        entry.resolved += 1;
+      } else {
+        entry.open += 1;
+      }
+    });
+
+    const labels = [...baseCategories];
+    if ((countsMap.get('Other')?.total || 0) > 0) {
+      labels.push('Other');
+    }
+
+    return {
+      labels,
+      data: labels.map((l) => countsMap.get(l)?.total || 0),
+      color: '#e11d48',
+      details: labels.map((l) => countsMap.get(l) || { total: 0, open: 0, resolved: 0 })
+    };
+  }
+
+  function getDynamicProjectStatusAnalytics(year = '2026') {
+    const yearStr = String(year || '2026');
+    const allProjects = Array.isArray(capitalProjects) ? capitalProjects : [];
+    const labels = ['Ongoing', 'Completed', 'Delayed', 'Planning'];
+    const colors = ['#2563eb', '#10b981', '#e11d48', '#94a3b8'];
+
+    if (yearStr === '2026') {
+      const scoped = allProjects.filter((p) => {
+        const py = String(p.year || '2026');
+        const isDefault = DEFAULT_CAPITAL_PROJECTS.some((d) => d.code === p.code);
+        return isDefault || py === '2026';
+      });
+      return {
+        labels,
+        colors,
+        data: [
+          scoped.filter((p) => p.status === 'ongoing').length,
+          scoped.filter((p) => p.status === 'completed').length,
+          scoped.filter((p) => p.status === 'delayed').length,
+          scoped.filter((p) => p.status === 'planning').length
+        ]
+      };
+    }
+
+    const customOrYearProjects = allProjects.filter(
+      (p) => String(p.year) === yearStr && !DEFAULT_CAPITAL_PROJECTS.some((d) => d.code === p.code)
+    );
+    const fb = REPORTS_ANALYTICS_DATA[yearStr]?.projectStatus || { labels, data: [0, 0, 0, 0], colors };
+    const extraOngoing = customOrYearProjects.filter((p) => p.status === 'ongoing').length;
+    const extraCompleted = customOrYearProjects.filter((p) => p.status === 'completed').length;
+    const extraDelayed = customOrYearProjects.filter((p) => p.status === 'delayed').length;
+    const extraPlanning = customOrYearProjects.filter((p) => p.status === 'planning').length;
+
+    return {
+      labels,
+      colors,
+      data: [
+        (fb.data[0] || 0) + extraOngoing,
+        (fb.data[1] || 0) + extraCompleted,
+        (fb.data[2] || 0) + extraDelayed,
+        (fb.data[3] || 0) + extraPlanning
+      ]
+    };
+  }
+
+  function getLiveResidentMetrics() {
+    const apps = Array.isArray(residentApplications) ? residentApplications : [];
+    // Baseline registry calibrated so initial seed (3 Verified, 4 Pending) displays 4,892 total (4,120 verified, 772 pending)
+    const baseVerified = 4117;
+    const basePending = 768;
+    const verifiedApps = apps.filter((a) => a && a.status === 'Verified').length;
+    const pendingApps = apps.filter((a) => a && a.status === 'Pending').length;
+    const verifiedTotal = baseVerified + verifiedApps;
+    const pendingTotal = Math.max(0, basePending + pendingApps);
+    const totalResidents = verifiedTotal + pendingTotal;
+    const verifiedPct = totalResidents > 0 ? ((verifiedTotal / totalResidents) * 100).toFixed(1) : '0.0';
+    return {
+      totalResidents,
+      verifiedTotal,
+      pendingTotal,
+      verifiedPct
+    };
+  }
+
   function updateDashboardStatsCards(year = '2026') {
     const setVal = (id, val) => {
       const el = document.getElementById(id);
@@ -2099,43 +2383,60 @@ document.addEventListener('DOMContentLoaded', function () {
       if (el) el.innerHTML = html;
     };
 
+    const yearStr = String(year || '2026');
     const yearRecords = (adminBudgetRecords || []).filter(
-      (b) => isApplicableBudgetRecord(b) && String(b.year) === String(year)
+      (b) => isApplicableBudgetRecord(b) && String(b.year) === yearStr
     );
     const budgetMetrics = computeBudgetMetrics(yearRecords);
 
-    if (String(year) === '2026') {
-      const totalReq = typeof serviceRequests !== 'undefined' ? serviceRequests.length : 18;
-      const completedReq = typeof serviceRequests !== 'undefined'
-        ? serviceRequests.filter(r => r.status === 'Ready for Pickup' || r.status === 'Completed').length
-        : 6;
-      const pendingReq = typeof serviceRequests !== 'undefined'
-        ? serviceRequests.filter(r => r.status === 'In Review' || r.status === 'Pending').length
-        : 12;
+    if (yearStr === '2026') {
+      const resMetrics = getLiveResidentMetrics();
+      const yearReqs = Array.isArray(serviceRequests)
+        ? serviceRequests.filter((r) => extractRecordYear(r, '2026') === '2026')
+        : [];
+      const activeReqs = yearReqs.filter(isRequestActiveForChart);
+      const inactiveReqCount = yearReqs.length - activeReqs.length;
+      const totalReq = activeReqs.length;
+      const completedReq = activeReqs.filter(
+        (r) => r.status === 'Ready for Pickup' || r.status === 'Completed' || r.status === 'Approved'
+      ).length;
+      const pendingReq = activeReqs.filter(
+        (r) => r.status === 'In Review' || r.status === 'Pending'
+      ).length;
 
-      const totalInc = typeof incidentTickets !== 'undefined' ? incidentTickets.length : 14;
-      const openInc = typeof incidentTickets !== 'undefined'
-        ? incidentTickets.filter(i => i.status !== 'Resolved').length
-        : 5;
+      const yearConcerns = Array.isArray(incidentTickets)
+        ? incidentTickets.filter((i) => extractRecordYear(i, '2026') === '2026')
+        : [];
+      const totalInc = yearConcerns.length;
+      const openInc = yearConcerns.filter((i) => normalizeConcernStatus(i.status) !== 'Resolved').length;
 
-      const ongoingProj = typeof capitalProjects !== 'undefined'
-        ? capitalProjects.filter(p => p.status === 'ongoing').length
-        : 2;
-      const completedProj = typeof capitalProjects !== 'undefined'
-        ? capitalProjects.filter(p => p.status === 'completed').length
-        : 2;
+      const projStats = getDynamicProjectStatusAnalytics('2026');
+      const [ongoingProj, completedProj] = projStats.data;
 
-      setVal('cardValResidents', '4,892');
-      setSub('cardSubResidents', '4,120 verified (84.2%)');
+      setVal('cardValResidents', resMetrics.totalResidents.toLocaleString('en-PH'));
+      setSub(
+        'cardSubResidents',
+        `${resMetrics.verifiedTotal.toLocaleString('en-PH')} verified (${resMetrics.verifiedPct}%)`
+      );
 
-      setVal('cardValPendingVerif', '772');
+      setVal('cardValPendingVerif', resMetrics.pendingTotal.toLocaleString('en-PH'));
       setSub('cardSubPendingVerif', 'Awaiting citizen validation');
+
+      const regBadge = document.getElementById('totalRegistryBadge');
+      if (regBadge) {
+        regBadge.textContent = `Total Registry: ${resMetrics.totalResidents.toLocaleString('en-PH')} Citizens`;
+      }
 
       setVal('cardValTotalBudget', formatCurrencyPHP(budgetMetrics.totalBudget));
       setSub('cardSubTotalBudget', `${formatCurrencyPHP(budgetMetrics.totalSpending)} spent · ${budgetMetrics.utilizationText} utilized`);
 
       setVal('cardValTotalRequests', totalReq.toString());
-      setSub('cardSubTotalRequests', 'All document filings');
+      setSub(
+        'cardSubTotalRequests',
+        inactiveReqCount > 0
+          ? `Active filings · ${inactiveReqCount} rejected/cancelled`
+          : 'All document filings'
+      );
 
       setVal('cardValCompletedRequests', completedReq.toString());
       setSub('cardSubCompletedRequests', 'Ready for pickup / released');
@@ -2144,7 +2445,12 @@ document.addEventListener('DOMContentLoaded', function () {
       setSub('cardSubPendingRequests', 'In review &amp; verification');
 
       setVal('cardValReportedConcerns', totalInc.toString());
-      setSub('cardSubReportedConcerns', `<span class="brgy-open-badge"><span class="badge-dot-alert"></span> <strong>${openInc} open concern${openInc !== 1 ? 's' : ''}</strong></span>`);
+      setSub(
+        'cardSubReportedConcerns',
+        openInc > 0
+          ? `<span class="brgy-open-badge"><span class="badge-dot-alert"></span> <strong>${openInc} open concern${openInc !== 1 ? 's' : ''}</strong></span>`
+          : `<span class="brgy-open-badge resolved"><span class="badge-dot-alert"></span> <strong>0 open concerns</strong></span>`
+      );
 
       setVal('cardValOngoingProjects', ongoingProj.toString());
       setSub('cardSubOngoingProjects', 'Active civic &amp; infra works');
@@ -2152,7 +2458,15 @@ document.addEventListener('DOMContentLoaded', function () {
       setVal('cardValCompletedProjects', completedProj.toString());
       setSub('cardSubCompletedProjects', 'Delivered infrastructure');
     } else {
-      // Historical / Other Fiscal Year Data
+      // Historical / Other Fiscal Year Data (with live overrides if records exist for that FY)
+      const yearReqs = Array.isArray(serviceRequests)
+        ? serviceRequests.filter((r) => extractRecordYear(r, '2026') === yearStr && isRequestActiveForChart(r))
+        : [];
+      const yearConcerns = Array.isArray(incidentTickets)
+        ? incidentTickets.filter((i) => extractRecordYear(i, '2026') === yearStr)
+        : [];
+      const projStats = getDynamicProjectStatusAnalytics(yearStr);
+
       setVal('cardValResidents', '4,650');
       setSub('cardSubResidents', '4,020 verified (86.4%)');
 
@@ -2162,41 +2476,105 @@ document.addEventListener('DOMContentLoaded', function () {
       setVal('cardValTotalBudget', formatCurrencyPHP(budgetMetrics.totalBudget));
       setSub('cardSubTotalBudget', `${formatCurrencyPHP(budgetMetrics.totalSpending)} spent · ${budgetMetrics.utilizationText} utilized`);
 
-      setVal('cardValTotalRequests', '15');
+      const totalReqHist = yearReqs.length > 0 ? yearReqs.length : 15;
+      const completedReqHist = yearReqs.length > 0
+        ? yearReqs.filter((r) => r.status === 'Ready for Pickup' || r.status === 'Completed' || r.status === 'Approved').length
+        : 15;
+      const pendingReqHist = yearReqs.length > 0
+        ? yearReqs.filter((r) => r.status === 'In Review' || r.status === 'Pending').length
+        : 0;
+
+      setVal('cardValTotalRequests', totalReqHist.toString());
       setSub('cardSubTotalRequests', 'All document filings');
 
-      setVal('cardValCompletedRequests', '15');
-      setSub('cardSubCompletedRequests', '100% completed');
+      setVal('cardValCompletedRequests', completedReqHist.toString());
+      setSub('cardSubCompletedRequests', pendingReqHist === 0 ? '100% completed' : 'Ready for pickup / released');
 
-      setVal('cardValPendingRequests', '0');
-      setSub('cardSubPendingRequests', 'All processed');
+      setVal('cardValPendingRequests', pendingReqHist.toString());
+      setSub('cardSubPendingRequests', pendingReqHist === 0 ? 'All processed' : 'In review &amp; verification');
 
-      setVal('cardValReportedConcerns', '11');
-      setSub('cardSubReportedConcerns', `<span class="brgy-open-badge resolved"><span class="badge-dot-alert"></span> <strong>0 open concerns</strong></span>`);
+      const totalIncHist = yearConcerns.length > 0 ? yearConcerns.length : 11;
+      const openIncHist = yearConcerns.length > 0
+        ? yearConcerns.filter((i) => normalizeConcernStatus(i.status) !== 'Resolved').length
+        : 0;
 
-      setVal('cardValOngoingProjects', '0');
-      setSub('cardSubOngoingProjects', 'All closed for FY');
+      setVal('cardValReportedConcerns', totalIncHist.toString());
+      setSub(
+        'cardSubReportedConcerns',
+        openIncHist > 0
+          ? `<span class="brgy-open-badge"><span class="badge-dot-alert"></span> <strong>${openIncHist} open concern${openIncHist !== 1 ? 's' : ''}</strong></span>`
+          : `<span class="brgy-open-badge resolved"><span class="badge-dot-alert"></span> <strong>0 open concerns</strong></span>`
+      );
 
-      setVal('cardValCompletedProjects', '4');
-      setSub('cardSubCompletedProjects', '4 projects delivered');
+      setVal('cardValOngoingProjects', projStats.data[0].toString());
+      setSub('cardSubOngoingProjects', projStats.data[0] > 0 ? 'Active civic &amp; infra works' : 'All closed for FY');
+
+      setVal('cardValCompletedProjects', projStats.data[1].toString());
+      setSub('cardSubCompletedProjects', `${projStats.data[1]} project${projStats.data[1] !== 1 ? 's' : ''} delivered`);
+    }
+  }
+
+  function syncAuxiliaryCharts(year = '2026') {
+    const dynReq = getDynamicRequestTypeAnalytics(year);
+    if (docVolumeChart) {
+      docVolumeChart.data.labels = dynReq.labels;
+      docVolumeChart.data.datasets[0].data = dynReq.data;
+      docVolumeChart.data.datasets[0].backgroundColor = dynReq.colors;
+      docVolumeChart.update();
+    }
+    const dynConcerns = getDynamicConcernsAnalytics(year);
+    if (incidentCategoryChart) {
+      const totalC = dynConcerns.data.reduce((s, v) => s + v, 0);
+      incidentCategoryChart.data.labels = dynConcerns.labels;
+      incidentCategoryChart.data.datasets[0].data = totalC > 0
+        ? dynConcerns.data.map((v) => Math.round((v / totalC) * 100))
+        : dynConcerns.data;
+      incidentCategoryChart.update();
     }
   }
 
   function initOrUpdateReportsCharts(year = '2026') {
-    if (typeof Chart === 'undefined') return;
-    const data = REPORTS_ANALYTICS_DATA[year] || REPORTS_ANALYTICS_DATA['2026'];
-    const dynBudget = getDynamicReportsBudgetData(year);
-    updateDashboardStatsCards(year);
+    const yearStr = String(year || getActiveDashboardYear() || '2026');
+    updateDashboardStatsCards(yearStr);
 
     // Keep year selectors synced if both exist
     const dashSelect = document.getElementById('dashboardFiscalYearSelect');
-    if (dashSelect && dashSelect.value !== year && Array.from(dashSelect.options).some(o => o.value === year)) {
-      dashSelect.value = year;
+    if (dashSelect && dashSelect.value !== yearStr && Array.from(dashSelect.options).some(o => o.value === yearStr)) {
+      dashSelect.value = yearStr;
     }
     const repSelect = document.getElementById('reportsFiscalYearSelect');
-    if (repSelect && repSelect.value !== year && Array.from(repSelect.options).some(o => o.value === year)) {
-      repSelect.value = year;
+    if (repSelect && repSelect.value !== yearStr && Array.from(repSelect.options).some(o => o.value === yearStr)) {
+      repSelect.value = yearStr;
     }
+
+    const dynBudget = getDynamicReportsBudgetData(yearStr);
+    const dynProj = getDynamicProjectStatusAnalytics(yearStr);
+    const dynReq = getDynamicRequestTypeAnalytics(yearStr);
+    const dynConcerns = getDynamicConcernsAnalytics(yearStr);
+
+    // Always update HTML legends even before/independent of Chart canvas rendering
+    const repProjLegend = document.getElementById('repProjectLegend');
+    if (repProjLegend && dynProj) {
+      const [cOngoing, cCompleted, cDelayed, cPlanning] = dynProj.data;
+      repProjLegend.innerHTML = `
+        <span class="legend-chip"><span class="legend-dot" style="background:#2563eb;"></span> Ongoing: <strong>${cOngoing}</strong></span>
+        <span class="legend-chip"><span class="legend-dot" style="background:#10b981;"></span> Completed: <strong>${cCompleted}</strong></span>
+        <span class="legend-chip"><span class="legend-dot" style="background:#e11d48;"></span> Delayed: <strong>${cDelayed}</strong></span>
+        <span class="legend-chip"><span class="legend-dot" style="background:#94a3b8;"></span> Planning: <strong>${cPlanning}</strong></span>
+      `;
+    }
+
+    const repReqLegend = document.getElementById('repRequestLegend');
+    if (repReqLegend && dynReq) {
+      repReqLegend.innerHTML = dynReq.shortLabels
+        .map(
+          (shortLbl, idx) =>
+            `<span class="legend-chip"><span class="legend-dot" style="background:${dynReq.colors[idx]};"></span> ${escapeHtml(shortLbl)}: <strong>${dynReq.data[idx]}</strong></span>`
+        )
+        .join('');
+    }
+
+    if (typeof Chart === 'undefined') return;
 
     // 1. Budget vs Actual by Category (Dual Grouped Vertical Bar Chart — Live Synced)
     const ctxBudgetCat = document.getElementById('repBudgetCatChart');
@@ -2362,41 +2740,29 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // 3. Project Status Distribution (Donut Chart)
-    if (year === '2026' && Array.isArray(capitalProjects)) {
-      data.projectStatus.data = [
-        capitalProjects.filter(p => p.status === 'ongoing').length,
-        capitalProjects.filter(p => p.status === 'completed').length,
-        capitalProjects.filter(p => p.status === 'delayed').length,
-        capitalProjects.filter(p => p.status === 'planning').length
-      ];
-    }
-    const repProjLegend = document.getElementById('repProjectLegend');
-    if (repProjLegend && data.projectStatus) {
-      const [cOngoing, cCompleted, cDelayed, cPlanning] = data.projectStatus.data;
-      repProjLegend.innerHTML = `
-        <span class="legend-chip"><span class="legend-dot" style="background:#2563eb;"></span> Ongoing: <strong>${cOngoing}</strong></span>
-        <span class="legend-chip"><span class="legend-dot" style="background:#10b981;"></span> Completed: <strong>${cCompleted}</strong></span>
-        <span class="legend-chip"><span class="legend-dot" style="background:#e11d48;"></span> Delayed: <strong>${cDelayed}</strong></span>
-        <span class="legend-chip"><span class="legend-dot" style="background:#94a3b8;"></span> Planning: <strong>${cPlanning}</strong></span>
-      `;
-    }
+    // 3. Project Status Distribution (Donut Chart — Live Synced)
+    const projEmpty = dynProj.data.every((n) => n === 0);
+    const projChartLabels = projEmpty ? ['No Active Projects'] : dynProj.labels;
+    const projChartData = projEmpty ? [1] : dynProj.data;
+    const projChartColors = projEmpty ? ['#e2e8f0'] : dynProj.colors;
+
     const ctxProjStatus = document.getElementById('repProjectStatusChart');
     if (ctxProjStatus) {
       if (repProjectStatusChart) {
-        repProjectStatusChart.data.labels = data.projectStatus.labels;
-        repProjectStatusChart.data.datasets[0].data = data.projectStatus.data;
-        repProjectStatusChart.data.datasets[0].backgroundColor = data.projectStatus.colors;
+        repProjectStatusChart.projEmptyState = projEmpty;
+        repProjectStatusChart.data.labels = projChartLabels;
+        repProjectStatusChart.data.datasets[0].data = projChartData;
+        repProjectStatusChart.data.datasets[0].backgroundColor = projChartColors;
         repProjectStatusChart.update();
       } else {
         repProjectStatusChart = new Chart(ctxProjStatus, {
           type: 'doughnut',
           data: {
-            labels: data.projectStatus.labels,
+            labels: projChartLabels,
             datasets: [
               {
-                data: data.projectStatus.data,
-                backgroundColor: data.projectStatus.colors,
+                data: projChartData,
+                backgroundColor: projChartColors,
                 borderWidth: 2,
                 borderColor: '#ffffff'
               }
@@ -2411,32 +2777,42 @@ document.addEventListener('DOMContentLoaded', function () {
               tooltip: {
                 backgroundColor: '#0a2540',
                 callbacks: {
-                  label: (ctx) => ` ${ctx.label}: ${ctx.raw} project${ctx.raw !== 1 ? 's' : ''}`
+                  label: (ctx) => {
+                    if (ctx.chart.projEmptyState) return ' 0 projects recorded';
+                    return ` ${ctx.label}: ${ctx.raw} project${ctx.raw !== 1 ? 's' : ''}`;
+                  }
                 }
               }
             }
           }
         });
+        repProjectStatusChart.projEmptyState = projEmpty;
       }
     }
 
-    // 4. Service Requests by Type (Donut Chart)
+    // 4. Service Requests by Type (Donut Chart — Live Synced)
+    const reqChartLabels = dynReq.isEmpty ? ['No Active Requests'] : dynReq.labels;
+    const reqChartData = dynReq.isEmpty ? [1] : dynReq.data;
+    const reqChartColors = dynReq.isEmpty ? ['#e2e8f0'] : dynReq.colors;
+
     const ctxReqType = document.getElementById('repRequestTypeChart');
     if (ctxReqType) {
       if (repRequestTypeChart) {
-        repRequestTypeChart.data.labels = data.requestType.labels;
-        repRequestTypeChart.data.datasets[0].data = data.requestType.data;
-        repRequestTypeChart.data.datasets[0].backgroundColor = data.requestType.colors;
+        repRequestTypeChart.reqDetails = dynReq.details;
+        repRequestTypeChart.reqEmptyState = dynReq.isEmpty;
+        repRequestTypeChart.data.labels = reqChartLabels;
+        repRequestTypeChart.data.datasets[0].data = reqChartData;
+        repRequestTypeChart.data.datasets[0].backgroundColor = reqChartColors;
         repRequestTypeChart.update();
       } else {
         repRequestTypeChart = new Chart(ctxReqType, {
           type: 'doughnut',
           data: {
-            labels: data.requestType.labels,
+            labels: reqChartLabels,
             datasets: [
               {
-                data: data.requestType.data,
-                backgroundColor: data.requestType.colors,
+                data: reqChartData,
+                backgroundColor: reqChartColors,
                 borderWidth: 2,
                 borderColor: '#ffffff'
               }
@@ -2451,32 +2827,43 @@ document.addEventListener('DOMContentLoaded', function () {
               tooltip: {
                 backgroundColor: '#0a2540',
                 callbacks: {
-                  label: (ctx) => ` ${ctx.label}: ${ctx.raw} request${ctx.raw !== 1 ? 's' : ''}`
+                  label: (ctx) => {
+                    if (ctx.chart.reqEmptyState) return ' 0 active service requests';
+                    const det = ctx.chart.reqDetails?.[ctx.dataIndex];
+                    if (det && (det.readyOrCompleted > 0 || det.inReview > 0)) {
+                      return ` ${ctx.label}: ${ctx.raw} request${ctx.raw !== 1 ? 's' : ''} (${det.readyOrCompleted} ready/released · ${det.inReview} in review)`;
+                    }
+                    return ` ${ctx.label}: ${ctx.raw} request${ctx.raw !== 1 ? 's' : ''}`;
+                  }
                 }
               }
             }
           }
         });
+        repRequestTypeChart.reqDetails = dynReq.details;
+        repRequestTypeChart.reqEmptyState = dynReq.isEmpty;
       }
     }
 
-    // 5. Concerns by Category (Horizontal Bar Chart)
+    // 5. Concerns by Category (Horizontal Bar Chart — Live Synced)
     const ctxConcerns = document.getElementById('repConcernsChart');
     if (ctxConcerns) {
       if (repConcernsChart) {
-        repConcernsChart.data.labels = data.concerns.labels;
-        repConcernsChart.data.datasets[0].data = data.concerns.data;
+        repConcernsChart.concernDetails = dynConcerns.details;
+        repConcernsChart.data.labels = dynConcerns.labels;
+        repConcernsChart.data.datasets[0].data = dynConcerns.data;
+        repConcernsChart.data.datasets[0].backgroundColor = dynConcerns.color;
         repConcernsChart.update();
       } else {
         repConcernsChart = new Chart(ctxConcerns, {
           type: 'bar',
           data: {
-            labels: data.concerns.labels,
+            labels: dynConcerns.labels,
             datasets: [
               {
                 label: 'Reported Concerns',
-                data: data.concerns.data,
-                backgroundColor: data.concerns.color,
+                data: dynConcerns.data,
+                backgroundColor: dynConcerns.color,
                 borderRadius: 4,
                 barPercentage: 0.65
               }
@@ -2491,7 +2878,13 @@ document.addEventListener('DOMContentLoaded', function () {
               tooltip: {
                 backgroundColor: '#0a2540',
                 callbacks: {
-                  label: (ctx) => ` ${ctx.raw} recorded incident${ctx.raw !== 1 ? 's' : ''}`
+                  label: (ctx) => {
+                    const det = ctx.chart.concernDetails?.[ctx.dataIndex];
+                    if (det && det.total > 0) {
+                      return ` ${ctx.raw} recorded incident${ctx.raw !== 1 ? 's' : ''} (${det.open} open · ${det.resolved} resolved)`;
+                    }
+                    return ` ${ctx.raw} recorded incident${ctx.raw !== 1 ? 's' : ''}`;
+                  }
                 }
               }
             },
@@ -2513,8 +2906,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
           }
         });
+        repConcernsChart.concernDetails = dynConcerns.details;
       }
     }
+
+    syncAuxiliaryCharts(yearStr);
+  }
+
+  function refreshAdminDashboard(year) {
+    initOrUpdateReportsCharts(year || getActiveDashboardYear());
   }
 
   function initReportsFiscalYearListener() {
@@ -2724,7 +3124,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const filtered = serviceRequests.filter(req => {
       const matchesStatus = currentReqStatusFilter === 'all' || req.status === currentReqStatusFilter;
-      const matchesCat = currentReqCategoryFilter === 'all' || req.docType === currentReqCategoryFilter || req.documentType === currentReqCategoryFilter;
+      const matchesCat =
+        currentReqCategoryFilter === 'all' ||
+        req.docType === currentReqCategoryFilter ||
+        req.documentType === currentReqCategoryFilter ||
+        classifyServiceRequestType(req.docType || req.documentType).key === classifyServiceRequestType(currentReqCategoryFilter).key;
       const searchLower = currentReqSearch.toLowerCase();
       const matchesSearch = !currentReqSearch ||
         req.id.toLowerCase().includes(searchLower) ||
@@ -2843,9 +3247,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (cntReject) cntReject.textContent = rejectCount;
     if (navCounter) navCounter.textContent = reviewCount + readyCount;
 
-    if (typeof updateDashboardStatsCards === 'function') {
-      updateDashboardStatsCards(document.getElementById('dashboardFiscalYearSelect')?.value || '2026');
-    }
+    refreshAdminDashboard();
   }
 
   function bindRequestRowEvents() {
@@ -3298,12 +3700,15 @@ document.addEventListener('DOMContentLoaded', function () {
     return '<span class="badge-status badge-standard-pill"><span class="dot-gray"></span>Standard</span>';
   }
 
-  function updateConcernStatus(id, rawStatus, customNote) {
+  function updateConcernStatus(id, rawStatus, customNote, newCategory) {
     const ticket = incidentTickets.find(t => t.id === id || t.ref === id);
     if (!ticket) return;
 
     const newStatus = normalizeConcernStatus(rawStatus);
     ticket.status = newStatus;
+    if (newCategory && String(newCategory).trim()) {
+      ticket.category = normalizeConcernCategory(newCategory);
+    }
     ticket.currentStage = newStatus === 'Resolved' ? 3 : (newStatus === 'In Progress' ? 2 : 1);
     ticket.updatedAt = new Date().toISOString().slice(0, 10);
 
@@ -3325,6 +3730,7 @@ document.addEventListener('DOMContentLoaded', function () {
     persistConcernsToStorage();
     pushResidentStatusNotification(ticket, newStatus, ticket.resolutionNote);
     renderIncidentsTable();
+    refreshAdminDashboard();
 
     const toastTone = newStatus === 'Resolved' ? 'success' : (newStatus === 'In Progress' ? 'info' : 'warning');
     showAdminToast(
@@ -3464,9 +3870,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (pProgress) pProgress.textContent = progressCount;
     if (pResolved) pResolved.textContent = resolvedCount;
 
-    if (typeof updateDashboardStatsCards === 'function') {
-      updateDashboardStatsCards(document.getElementById('dashboardFiscalYearSelect')?.value || '2026');
-    }
+    refreshAdminDashboard();
   }
 
   function bindIncidentRowEvents() {
@@ -3536,16 +3940,58 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   renderIncidentsTable();
-  window.addEventListener('storage', function (e) {
-    if (e.key === 'brgy360_concerns') {
+  function syncAllStoresFromStorage(changedKey) {
+    if (!changedKey || changedKey === 'brgy360_concerns') {
       syncResidentConcernsFromStorage();
       renderIncidentsTable();
-    } else if (e.key === 'brgy360_service_requests' || e.key === 'brgy360_requests' || e.key === 'brgy360_user_requests' || !e.key) {
+    }
+    if (
+      !changedKey ||
+      changedKey === 'brgy360_service_requests' ||
+      changedKey === 'brgy360_requests' ||
+      changedKey === 'brgy360_user_requests'
+    ) {
       serviceRequests = loadServiceRequests();
       renderRequestsTable();
       renderOverviewQueue();
       updateRequestsCounter(serviceRequests.length);
     }
+    if (!changedKey || changedKey === 'brgy360_capital_projects') {
+      capitalProjects = loadCapitalProjects();
+      if (typeof renderProjectsTable === 'function') renderProjectsTable();
+    }
+    if (!changedKey || changedKey === 'brgy360_proposals') {
+      citizenProposals = loadCitizenProposals();
+      if (typeof renderProposalsTable === 'function') renderProposalsTable();
+    }
+    if (!changedKey || changedKey === 'brgy360_resident_applications') {
+      residentApplications = loadResidentApplications();
+      window.residentApplications = residentApplications;
+      if (typeof renderResidentVerificationTable === 'function') renderResidentVerificationTable();
+    }
+    if (!changedKey || changedKey === 'brgy360_budget_records_v1') {
+      adminBudgetRecords = loadBudgetRecords();
+      if (typeof renderAdminBudgetTable === 'function') renderAdminBudgetTable();
+    }
+    refreshAdminDashboard();
+  }
+
+  window.addEventListener('storage', function (e) {
+    syncAllStoresFromStorage(e ? e.key : null);
+  });
+
+  window.addEventListener('focus', function () {
+    syncAllStoresFromStorage(null);
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      syncAllStoresFromStorage(null);
+    }
+  });
+
+  window.addEventListener('pageshow', function () {
+    syncAllStoresFromStorage(null);
   });
 
   window.addEventListener('brgy360_requests_changed', function () {
@@ -3553,6 +3999,13 @@ document.addEventListener('DOMContentLoaded', function () {
     renderRequestsTable();
     renderOverviewQueue();
     updateRequestsCounter(serviceRequests.length);
+    refreshAdminDashboard();
+  });
+
+  window.addEventListener('brgy360_projects_changed', function () {
+    capitalProjects = loadCapitalProjects();
+    if (typeof renderProjectsTable === 'function') renderProjectsTable();
+    refreshAdminDashboard();
   });
 
   // ==============================================================
@@ -3595,6 +4048,19 @@ document.addEventListener('DOMContentLoaded', function () {
     else if (item.status === 'Completed' || item.status === 'Approved') statusPillClass = 'badge-status blue';
     else if (item.status === 'Rejected') statusPillClass = 'badge-status red';
 
+    const currentDocTypeVal = item.docType || item.documentType || 'Barangay Clearance';
+    const docTypeOptions = [
+      'Barangay Clearance',
+      'Certificate of Indigency',
+      'Certificate of Residency',
+      'Barangay Business Clearance',
+      'Certification for First-Time Job Seeker',
+      'Katarungang Pambarangay Mediation'
+    ];
+    if (!docTypeOptions.includes(currentDocTypeVal)) {
+      docTypeOptions.push(currentDocTypeVal);
+    }
+
     if (modalReqBody) {
       modalReqBody.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:14px;">
@@ -3603,6 +4069,12 @@ document.addEventListener('DOMContentLoaded', function () {
             <div><span style="font-size:11px; color:#64748b;">Sitio / Purok:</span><br><strong>${escapeHtml(item.sitio || item.purokSitio)}</strong></div>
             <div><span style="font-size:11px; color:#64748b;">Contact Mobile:</span><br><strong>${escapeHtml(item.contact || 'N/A')}</strong></div>
             <div><span style="font-size:11px; color:#64748b;">ID on Record:</span><br><strong>${escapeHtml(item.idOnRecord || 'PhilID on file')}</strong></div>
+          </div>
+          <div>
+            <label for="modalReqDocTypeSelect" style="font-size:11px; color:#64748b; display:block; margin-bottom:4px;">Certificate / Service Type:</label>
+            <select id="modalReqDocTypeSelect" class="form-select">
+              ${docTypeOptions.map(opt => `<option value="${escapeHtml(opt)}" ${opt === currentDocTypeVal ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
+            </select>
           </div>
           <div>
             <span style="font-size:11px; color:#64748b;">Declared Purpose:</span>
@@ -3622,6 +4094,20 @@ document.addEventListener('DOMContentLoaded', function () {
           </div>
         </div>
       `;
+      const docTypeSel = document.getElementById('modalReqDocTypeSelect');
+      if (docTypeSel) {
+        docTypeSel.addEventListener('change', function () {
+          const updatedType = this.value;
+          item.docType = updatedType;
+          item.documentType = updatedType;
+          if (modalReqDocType) modalReqDocType.textContent = updatedType;
+          persistServiceRequests();
+          renderRequestsTable();
+          renderOverviewQueue();
+          refreshAdminDashboard();
+          showAdminToast('Service Request Updated', `Certificate type for ${item.id} updated to ${updatedType}.`, 'info');
+        });
+      }
     }
 
     const modalFooter = document.getElementById('modalReqFooter');
@@ -3798,11 +4284,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 </select>
               </div>
               <div class="form-group" style="margin:0;">
-                <label class="form-label">Urgency Level (Set by Resident)</label>
-                <div style="display:flex; align-items:center; justify-content:space-between; height:38px; padding:0 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; cursor:not-allowed;" title="Urgency level is set by the resident upon submission and cannot be modified by Admin">
-                  ${urgencyBadgeHtml}
-                  <span style="font-size:11px; color:#64748b; font-weight:500;">Read-only</span>
-                </div>
+                <label class="form-label" for="modalConcernCategorySelect">Concern Category</label>
+                <select id="modalConcernCategorySelect" class="form-select">
+                  <option value="Infrastructure" ${item.category === 'Infrastructure' ? 'selected' : ''}>Infrastructure</option>
+                  <option value="Sanitation" ${item.category === 'Sanitation' ? 'selected' : ''}>Sanitation</option>
+                  <option value="Public Safety" ${item.category === 'Public Safety' || item.category === 'Safety' ? 'selected' : ''}>Public Safety</option>
+                  <option value="Noise Disturbance" ${item.category === 'Noise Disturbance' || item.category === 'Noise' ? 'selected' : ''}>Noise Disturbance</option>
+                  <option value="Public Utility" ${item.category === 'Public Utility' || item.category === 'Utilities' ? 'selected' : ''}>Public Utility</option>
+                  <option value="Other" ${item.category === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin:0 0 10px 0;">
+              <label class="form-label">Urgency Level (Set by Resident)</label>
+              <div style="display:flex; align-items:center; justify-content:space-between; height:38px; padding:0 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; cursor:not-allowed;" title="Urgency level is set by the resident upon submission and cannot be modified by Admin">
+                ${urgencyBadgeHtml}
+                <span style="font-size:11px; color:#64748b; font-weight:500;">Read-only</span>
               </div>
             </div>
             <div class="form-group" style="margin:0;">
@@ -3828,8 +4325,9 @@ document.addEventListener('DOMContentLoaded', function () {
     btnSaveConcernModalStatus.addEventListener('click', function () {
       if (!currentInspectingIncId) return;
       const newStatus = document.getElementById('modalConcernStatusSelect')?.value || 'Pending';
+      const newCategory = document.getElementById('modalConcernCategorySelect')?.value || '';
       const adminNote = document.getElementById('modalConcernAdminNote')?.value || '';
-      updateConcernStatus(currentInspectingIncId, newStatus, adminNote);
+      updateConcernStatus(currentInspectingIncId, newStatus, adminNote, newCategory);
       closeConcernViewModal();
     });
   }
@@ -4908,39 +5406,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const elNavCounterProjects = document.getElementById('navCounterProjects');
     if (elNavCounterProjects) elNavCounterProjects.textContent = totalProjects;
 
-    const selectedYear = document.getElementById('dashboardFiscalYearSelect')?.value || '2026';
-    if (REPORTS_ANALYTICS_DATA['2026']?.projectStatus) {
-      REPORTS_ANALYTICS_DATA['2026'].projectStatus.data = [
-        ongoingList.length,
-        completedList.length,
-        delayedList.length,
-        planningList.length
-      ];
-    }
-    if (selectedYear === '2026') {
-      if (repProjectStatusChart) {
-        repProjectStatusChart.data.datasets[0].data = [
-          ongoingList.length,
-          completedList.length,
-          delayedList.length,
-          planningList.length
-        ];
-        repProjectStatusChart.update();
-      }
-      const repProjLegend = document.getElementById('repProjectLegend');
-      if (repProjLegend) {
-        repProjLegend.innerHTML = `
-          <span class="legend-chip"><span class="legend-dot" style="background:#2563eb;"></span> Ongoing: <strong>${ongoingList.length}</strong></span>
-          <span class="legend-chip"><span class="legend-dot" style="background:#10b981;"></span> Completed: <strong>${completedList.length}</strong></span>
-          <span class="legend-chip"><span class="legend-dot" style="background:#e11d48;"></span> Delayed: <strong>${delayedList.length}</strong></span>
-          <span class="legend-chip"><span class="legend-dot" style="background:#94a3b8;"></span> Planning: <strong>${planningList.length}</strong></span>
-        `;
-      }
-    }
-
-    if (typeof updateDashboardStatsCards === 'function') {
-      updateDashboardStatsCards(selectedYear);
-    }
+    const selectedYear = getActiveDashboardYear();
+    refreshAdminDashboard(selectedYear);
 
     // 2. Render Projects Table Body
     const tbody = document.getElementById('projectsTableBody');
@@ -8019,7 +8486,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Refresh views
     renderResidentVerificationTable();
-    updateDashboardStatsCards(document.getElementById('dashboardFiscalYearSelect')?.value || '2026');
+    refreshAdminDashboard();
   }
 
   function openResidentRejectModal(appId) {
@@ -8096,7 +8563,7 @@ document.addEventListener('DOMContentLoaded', function () {
     showAdminToast('Application Declined', `Application for ${app.fullName} set to Rejected (${reasonVal}). Notification queued.`, 'danger');
 
     renderResidentVerificationTable();
-    updateDashboardStatsCards(document.getElementById('dashboardFiscalYearSelect')?.value || '2026');
+    refreshAdminDashboard();
   }
 
   // Lightbox Zoom & Preview Engine
@@ -8378,7 +8845,7 @@ document.addEventListener('DOMContentLoaded', function () {
     showAdminToast('Pre-Registration Enrolled', `Applicant ${fullName} queued for verification under ${sitio}.`, 'success');
 
     renderResidentVerificationTable();
-    updateDashboardStatsCards(document.getElementById('dashboardFiscalYearSelect')?.value || '2026');
+    refreshAdminDashboard();
   }
 
   // Initialize Resident Verification Module Event Handlers
@@ -8703,7 +9170,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initAdminBudgetModule();
   initResidentVerificationModule();
   renderResidentVerificationTable();
-  updateDashboardStatsCards('2026');
+  refreshAdminDashboard(getActiveDashboardYear());
 
   // Activate view from URL hash on load (once all datasets and modules are ready)
   const initialHash = window.location.hash.replace('#', '').toLowerCase();
